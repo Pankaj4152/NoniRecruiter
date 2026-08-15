@@ -49,10 +49,10 @@ async function callGemini(
   options: LLMCompletionOptions
 ): Promise<LLMCompletionResult> {
   const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
   const startedAt = Date.now();
 
-  if (!apiKey || apiKey.trim().length < 10 || !apiKey.startsWith('AIzaSy')) {
+  if (!apiKey || apiKey.trim().length < 10) {
     return fallbackResult(messages, startedAt, 'Gemini API key is missing or invalid.');
   }
 
@@ -65,10 +65,10 @@ async function callGemini(
 
     const fullPrompt = `${systemMsg}\n\n=== CONVERSATION HISTORY ===\n${conversationPrompt}\n\nGenerate response:`;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
         contents: [{ parts: [{ text: fullPrompt }] }],
         generationConfig: {

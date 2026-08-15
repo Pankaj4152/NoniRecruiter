@@ -33,6 +33,7 @@ async function run() {
 
   console.log('\nPreparing candidate context...');
   const candidate = await parseCandidateProfile(resumeText, name, role);
+  printResumePreview(candidate);
   const job: JobDescription = {
     roleTitle: role,
     companyName: company,
@@ -76,6 +77,45 @@ async function run() {
   function printTurn(turn: typeof result) {
     console.log(`\nInterviewer> ${turn.interviewerResponse}\n`);
   }
+}
+
+function printResumePreview(candidate: Awaited<ReturnType<typeof parseCandidateProfile>>) {
+  const resume = candidate.structuredResume;
+  console.log('\n------------------------------------------------------------');
+  console.log('PARSED RESUME PREVIEW');
+  console.log('------------------------------------------------------------');
+  console.log(`Candidate: ${candidate.name}`);
+  console.log(`Target role: ${candidate.targetRole}`);
+  console.log(`Assessed level: ${candidate.experienceLevel}`);
+  console.log(`Skills: ${candidate.skills.slice(0, 15).join(', ') || 'No skills detected'}`);
+
+  if (resume?.experience.length) {
+    console.log('\nExperience:');
+    for (const item of resume.experience.slice(0, 3)) {
+      console.log(`- ${item.role || 'Role not specified'} at ${item.company || 'Company not specified'}${item.duration ? ` (${item.duration})` : ''}`);
+      for (const highlight of item.highlights.slice(0, 2)) console.log(`  - ${highlight}`);
+    }
+  }
+
+  if (resume?.projects.length) {
+    console.log('\nProjects:');
+    for (const project of resume.projects.slice(0, 4)) {
+      const technologies = project.technologies.length ? ` [${project.technologies.join(', ')}]` : '';
+      console.log(`- ${project.title}${technologies}`);
+      if (project.description) console.log(`  ${project.description}`);
+    }
+  }
+
+  if (resume?.education && (resume.education.degree || resume.education.institution)) {
+    console.log('\nEducation:');
+    console.log(`- ${[resume.education.degree, resume.education.institution, resume.education.year].filter(Boolean).join(' | ')}`);
+  }
+
+  if (resume?.achievements.length) {
+    console.log('\nAchievements:');
+    for (const achievement of resume.achievements.slice(0, 3)) console.log(`- ${achievement}`);
+  }
+  console.log('------------------------------------------------------------\n');
 }
 
 run().catch((error) => {
