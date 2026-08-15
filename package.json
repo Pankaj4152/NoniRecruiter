@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit --incremental false",
     "test:engine": "tsx scripts/test-engine.ts",
     "test:time": "tsx scripts/test-time-budget.ts",
+    "test:provider": "tsx scripts/test-provider-trace.ts",
     "test:interactive": "tsx scripts/interactive-interview.ts",
     "test:simulate": "tsx scripts/simulate.ts"
   },

@@ -3,7 +3,7 @@ import {
   TurnEvaluation, 
   InterviewTurn 
 } from './types';
-import { generateLLMCompletion } from './llm';
+import { generateLLMCompletionDetailed } from './llm';
 
 export class CandidateEvaluator {
   /**
@@ -41,7 +41,7 @@ Return strictly JSON matching this structure:
 }`;
 
     try {
-      const response = await generateLLMCompletion(
+      const completion = await generateLLMCompletionDetailed(
         [
           { role: 'system', content: 'You are an objective AI Interview Evaluator. Return JSON.' },
           { role: 'user', content: prompt }
@@ -49,10 +49,12 @@ Return strictly JSON matching this structure:
         { jsonMode: true, temperature: 0.2 }
       );
 
-      const parsed = JSON.parse(response);
+      const parsed = JSON.parse(completion.text);
 
+      const normalizeEvidence = (text: string) => text.replace(/\s+/g, ' ').trim();
+      const normalizedAnswer = normalizeEvidence(candidateTurn.text);
       const exactQuotes = (value: unknown): string[] => Array.isArray(value)
-        ? value.filter((quote): quote is string => typeof quote === 'string' && candidateTurn.text.includes(quote))
+        ? value.filter((quote): quote is string => typeof quote === 'string' && normalizedAnswer.includes(normalizeEvidence(quote)))
         : [];
       return {
         turnId: candidateTurn.turnId,
@@ -64,6 +66,7 @@ Return strictly JSON matching this structure:
         strengthsEvidence: exactQuotes(parsed.strengthsEvidence),
         redFlagsEvidence: exactQuotes(parsed.redFlagsEvidence),
         feedbackNotes: parsed.feedbackNotes || 'Good effort on technical explanation.',
+        modelTrace: completion.trace,
       };
     } catch {
       // Local Fallback Evaluation

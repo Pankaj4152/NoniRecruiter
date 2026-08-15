@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { ModelTrace } from './types';
 dotenv.config();
 
 export interface LLMMessage {
@@ -11,6 +12,11 @@ export interface LLMCompletionOptions {
   jsonMode?: boolean;
 }
 
+export interface LLMCompletionResult {
+  text: string;
+  trace: ModelTrace;
+}
+
 /**
  * Modular LLM Completion Function
  * Default provider: Gemini (via GEMINI_API_KEY)
@@ -20,6 +26,13 @@ export async function generateLLMCompletion(
   messages: LLMMessage[],
   options: LLMCompletionOptions = {}
 ): Promise<string> {
+  return (await generateLLMCompletionDetailed(messages, options)).text;
+}
+
+export async function generateLLMCompletionDetailed(
+  messages: LLMMessage[],
+  options: LLMCompletionOptions = {}
+): Promise<LLMCompletionResult> {
   const provider = process.env.LLM_PROVIDER || 'gemini';
 
   if (provider === 'gemini') {
@@ -34,11 +47,13 @@ export async function generateLLMCompletion(
 async function callGemini(
   messages: LLMMessage[],
   options: LLMCompletionOptions
-): Promise<string> {
+): Promise<LLMCompletionResult> {
   const apiKey = process.env.GEMINI_API_KEY;
+  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  const startedAt = Date.now();
 
   if (!apiKey || apiKey.trim().length < 10 || !apiKey.startsWith('AIzaSy')) {
-    return generateMockResponse(messages);
+    return fallbackResult(messages, startedAt, 'Gemini API key is missing or invalid.');
   }
 
   try {
@@ -50,7 +65,7 @@ async function callGemini(
 
     const fullPrompt = `${systemMsg}\n\n=== CONVERSATION HISTORY ===\n${conversationPrompt}\n\nGenerate response:`;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -64,25 +79,28 @@ async function callGemini(
     });
 
     if (!response.ok) {
-      return generateMockResponse(messages);
+      return fallbackResult(messages, startedAt, `Gemini request failed with HTTP ${response.status}.`);
     }
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    return text || generateMockResponse(messages);
-  } catch {
-    return generateMockResponse(messages);
+    if (!text) return fallbackResult(messages, startedAt, 'Gemini returned an empty response.');
+    return { text, trace: { provider: 'gemini', model, latencyMs: Date.now() - startedAt, usedFallback: false } };
+  } catch (error) {
+    return fallbackResult(messages, startedAt, error instanceof Error ? error.message : 'Gemini request failed.');
   }
 }
 
 async function callOpenAI(
   messages: LLMMessage[],
   options: LLMCompletionOptions
-): Promise<string> {
+): Promise<LLMCompletionResult> {
   const apiKey = process.env.OPENAI_API_KEY;
+  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+  const startedAt = Date.now();
 
   if (!apiKey) {
-    return generateMockResponse(messages);
+    return fallbackResult(messages, startedAt, 'OpenAI API key is missing.');
   }
 
   try {
@@ -93,7 +111,7 @@ async function callOpenAI(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model,
         messages: messages.map((m) => ({
           role: m.role,
           content: m.content,
@@ -103,11 +121,27 @@ async function callOpenAI(
       }),
     });
 
+    if (!response.ok) return fallbackResult(messages, startedAt, `OpenAI request failed with HTTP ${response.status}.`);
     const data = await response.json();
-    return data.choices[0]?.message?.content || '';
-  } catch {
-    return generateMockResponse(messages);
+    const text = data.choices?.[0]?.message?.content;
+    if (!text) return fallbackResult(messages, startedAt, 'OpenAI returned an empty response.');
+    return { text, trace: { provider: 'openai', model, latencyMs: Date.now() - startedAt, usedFallback: false } };
+  } catch (error) {
+    return fallbackResult(messages, startedAt, error instanceof Error ? error.message : 'OpenAI request failed.');
   }
+}
+
+function fallbackResult(messages: LLMMessage[], startedAt: number, reason: string): LLMCompletionResult {
+  return {
+    text: generateMockResponse(messages),
+    trace: {
+      provider: 'demo-fallback',
+      model: 'deterministic-v1',
+      latencyMs: Date.now() - startedAt,
+      usedFallback: true,
+      fallbackReason: reason,
+    },
+  };
 }
 
 /**
@@ -130,14 +164,22 @@ function generateMockResponse(messages: LLMMessage[]): string {
     const technical = Math.min(9, 5 + (wordCount > 18 ? 1 : 0) + (hasTradeoffs ? 1 : 0) + (hasMeasurement ? 1 : 0));
     const communication = Math.min(9, 5 + (wordCount > 12 ? 1 : 0) + (wordCount > 30 ? 1 : 0));
     const problemSolving = Math.min(9, 5 + (hasTradeoffs ? 2 : 0) + (hasMeasurement ? 1 : 0));
-    const evidence = answer.length > 160 ? answer.slice(0, 157) : answer;
+    const evidence = selectEvidenceQuote(answer);
     return JSON.stringify({
       technicalAccuracyScore: technical,
       communicationScore: communication,
       problemSolvingScore: problemSolving,
       strengthsEvidence: evidence ? [evidence] : [],
       redFlagsEvidence: [],
-      feedbackNotes: wordCount < 18 ? 'Add implementation detail, metrics, and explicit trade-offs.' : 'Clear answer; continue probing scale and failure modes.',
+      feedbackNotes: wordCount < 18
+        ? 'Add implementation detail, metrics, and explicit trade-offs.'
+        : !hasTradeoffs && !hasMeasurement
+          ? 'Follow up on architecture alternatives, validation method, and measurable outcomes.'
+          : !hasTradeoffs
+            ? 'Follow up on rejected alternatives and why the selected approach was preferable.'
+            : !hasMeasurement
+              ? 'Follow up on before-and-after metrics used to validate the decision.'
+              : 'Evidence was specific and included both decision rationale and measurement.',
     });
   }
 
@@ -195,4 +237,18 @@ function generateMockResponse(messages: LLMMessage[]): string {
     shouldEndInterview: false,
     reasoning: "Adapting question to candidate input."
   });
+}
+
+function selectEvidenceQuote(answer: string): string {
+  const cleaned = answer.replace(/(?:^|\s)>>?\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  const sentences = cleaned.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) || [];
+  const meaningful = sentences.find((sentence) => sentence.split(/\s+/).length >= 10) || sentences[0] || '';
+  if (meaningful.length <= 220) return meaningful;
+  const words = meaningful.split(/\s+/);
+  let quote = '';
+  for (const word of words) {
+    if (`${quote} ${word}`.trim().length > 217) break;
+    quote = `${quote} ${word}`.trim();
+  }
+  return quote;
 }

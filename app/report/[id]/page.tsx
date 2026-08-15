@@ -133,6 +133,8 @@ export default function ReportDashboardPage() {
             <ShieldCheck className="w-3.5 h-3.5" /> Verified Evidence Audit
           </div>
           <h2 className="text-3xl font-extrabold text-white">{report.candidateName}</h2>
+          <p className="max-w-2xl text-sm leading-6 text-slate-300">{report.executiveSummary}</p>
+          <p className="text-xs text-cyan-300"><strong>Next step:</strong> {report.recommendedNextStep}</p>
           <p className="text-sm text-slate-400">
             Target Role: <strong className="text-slate-200">{report.targetRole}</strong> • Session Date: {report.date}
           </p>
@@ -151,6 +153,7 @@ export default function ReportDashboardPage() {
               {report.verdict}
             </div>
             <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mt-1">Verdict</div>
+            <div className="text-[10px] text-slate-500 mt-1">{report.confidence} confidence</div>
           </div>
         </div>
       </div>
@@ -171,6 +174,9 @@ export default function ReportDashboardPage() {
         <div className="mt-4 border-t border-white/[0.06] pt-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between text-xs">
           <span className="text-slate-400"><strong className="text-slate-200">Completion:</strong> {report.timing.completionReason}</span>
           <span className="text-indigo-300">{report.timing.phasesCovered.map((item: string) => item.replaceAll('_', ' ')).join(' → ')}</span>
+        </div>
+        <div className="mt-3 text-[11px] text-slate-500">
+          AI runtime: {report.modelUsage.providers.join(', ') || 'not tracked'} · {report.modelUsage.models.join(', ') || 'not tracked'} · fallback {report.modelUsage.fallbackCalls}/{report.modelUsage.totalTrackedCalls} · avg {report.modelUsage.averageLatencyMs}ms
         </div>
       </div>
 

@@ -7,6 +7,13 @@ import { JobDescription } from '../lib/interview/types';
 
 const cli = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = (prompt: string) => new Promise<string>((resolve) => cli.question(prompt, resolve));
+const cleanCandidateInput = (value: string) => value
+  .replace(/(?:^|\s)>>?\s*/g, '\n')
+  .split('\n')
+  .map((line) => line.trim())
+  .filter(Boolean)
+  .join('\n\n')
+  .trim();
 
 async function run() {
   console.log('\nNoniRecruiter — Adaptive CLI Interview\n');
@@ -40,12 +47,18 @@ async function run() {
   console.log('Type "exit" at any time to finish and generate the report.\n');
 
   let result = await InterviewEngine.processTurn(session);
+  const runtime = result.modelTrace;
+  if (runtime) {
+    console.log(`AI runtime: ${runtime.provider} / ${runtime.model}`);
+    if (runtime.usedFallback) console.log(`Demo fallback active: ${runtime.fallbackReason}`);
+  }
   printTurn(result);
 
   while (!session.isCompleted) {
-    const answer = await ask(`${name}> `);
-    if (answer.trim().toLowerCase() === 'exit') break;
-    if (!answer.trim()) continue;
+    const rawAnswer = await ask(`${name}> `);
+    if (rawAnswer.trim().toLowerCase() === 'exit') break;
+    const answer = cleanCandidateInput(rawAnswer);
+    if (!answer) continue;
     console.log('\nInterviewer is thinking...');
     result = await InterviewEngine.processTurn(session, answer);
     printTurn(result);

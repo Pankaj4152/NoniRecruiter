@@ -73,6 +73,7 @@ These are proposed integration steps, not features claimed to be connected to No
 
 ## Documentation
 
+- **[Architecture Diagram](docs/ARCHITECTURE.md)** — current prototype and proposed Nonilion teammate flow.
 - **[Nonilion Integration Plan](docs/NONILION_INTEGRATION.md)** — current-versus-target architecture, provider migration, LiveKit audio path, persistence, events, roadmap, and pilot requirements.
 - **[Demo Guide](docs/DEMO_GUIDE.md)** — recommended walkthrough, pitch, test scenarios, and limitations.
 - **[Evidence and Assumptions](docs/NONILION_EVIDENCE.md)** — confirmed public technologies versus derived or proposed choices.
@@ -85,6 +86,7 @@ These are proposed integration steps, not features claimed to be connected to No
 | `npm run test:simulate` | Run an automated simulation |
 | `npm run test:engine` | Test adaptive questions and deduplication |
 | `npm run test:time` | Test time management and closing |
+| `npm run test:provider` | Test provider and fallback visibility |
 | `npm run typecheck` | Validate TypeScript |
 | `npm run build` | Build the optional Next.js interface |
 

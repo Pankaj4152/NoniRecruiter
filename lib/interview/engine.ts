@@ -6,7 +6,7 @@ import {
   EngineTurnResult,
   InterviewTimeBudget,
 } from './types';
-import { generateLLMCompletion, LLMMessage } from './llm';
+import { generateLLMCompletionDetailed, LLMMessage } from './llm';
 
 export class InterviewEngine {
   /**
@@ -228,10 +228,11 @@ Return strictly JSON with this EXACT structure:
       });
     }
 
-    const llmRawResponse = await generateLLMCompletion(messages, {
+    const llmCompletion = await generateLLMCompletionDetailed(messages, {
       temperature: 0.7,
       jsonMode: true,
     });
+    const llmRawResponse = llmCompletion.text;
 
     let result: EngineTurnResult;
     try {
@@ -293,6 +294,7 @@ Return strictly JSON with this EXACT structure:
     }
 
     result.timeBudget = timeBudget;
+    result.modelTrace = llmCompletion.trace;
 
     session.currentPhase = result.nextPhase;
     session.turnNumber += 1;
@@ -302,6 +304,7 @@ Return strictly JSON with this EXACT structure:
       text: result.interviewerResponse,
       timestamp: new Date().toISOString(),
       phase: result.nextPhase,
+      modelTrace: llmCompletion.trace,
     });
 
     if (result.shouldEndInterview || result.nextPhase === 'COMPLETED') {

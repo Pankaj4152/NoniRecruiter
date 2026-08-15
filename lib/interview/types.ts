@@ -70,6 +70,15 @@ export interface InterviewTurn {
   text: string;
   timestamp: string;
   phase: InterviewPhase;
+  modelTrace?: ModelTrace;
+}
+
+export interface ModelTrace {
+  provider: 'gemini' | 'openai' | 'demo-fallback';
+  model: string;
+  latencyMs: number;
+  usedFallback: boolean;
+  fallbackReason?: string;
 }
 
 export interface InterviewSession {
@@ -96,6 +105,7 @@ export interface EngineTurnResult {
   terminationReason?: string;
   reasoning: string;
   timeBudget?: InterviewTimeBudget;
+  modelTrace?: ModelTrace;
 }
 
 export interface InterviewTimeBudget {
@@ -119,6 +129,7 @@ export interface TurnEvaluation {
   strengthsEvidence: string[];     // Direct verifier quotes
   redFlagsEvidence: string[];     // Direct verifier quotes
   feedbackNotes: string;
+  modelTrace?: ModelTrace;
 }
 
 export type HiringVerdict = 'STRONG HIRE' | 'HIRE' | 'LEAN HIRE' | 'NO HIRE';
@@ -130,6 +141,9 @@ export interface FinalInterviewReport {
   date: string;
   overallScore: number; // 0 - 100
   verdict: HiringVerdict;
+  confidence: 'LOW' | 'MODERATE' | 'HIGH';
+  executiveSummary: string;
+  recommendedNextStep: string;
   timing: {
     requestedDurationMinutes: number;
     actualDurationSeconds: number;
@@ -137,6 +151,13 @@ export interface FinalInterviewReport {
     endedAt: string;
     completionReason: string;
     phasesCovered: InterviewPhase[];
+  };
+  modelUsage: {
+    providers: string[];
+    models: string[];
+    fallbackCalls: number;
+    totalTrackedCalls: number;
+    averageLatencyMs: number;
   };
   scores: {
     technicalAccuracy: number; // 0 - 100
