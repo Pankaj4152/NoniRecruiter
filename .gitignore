@@ -1,0 +1,11 @@
+node_modules/
+.next/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+.venv/
+interview_report_*.md
+

@@ -1,0 +1,31 @@
+{
+  "$comment": "Illustrative metadata only. This is not a confirmed Nonilion agent manifest schema.",
+  "agentId": "noni-recruiter-agent",
+  "name": "NoniRecruiter",
+  "version": "0.1.0",
+  "status": "integration-prototype",
+  "description": "Resume-aware, time-managed AI technical interviewer with evidence-backed reporting.",
+  "author": "Pankaj Kumar Goyal",
+  "category": "HR & Hiring",
+  "implementedCapabilities": [
+    "PDF and text resume context extraction",
+    "Adaptive question flow and technical probing",
+    "Time-budget and competency-coverage management",
+    "Duplicate-question prevention",
+    "Turn-by-turn evidence evaluation",
+    "Markdown hiring report generation"
+  ],
+  "currentInteraction": {
+    "supportedModes": ["cli", "text"],
+    "defaultLlmProvider": "gemini",
+    "availableLlmProviders": ["gemini", "openai", "offline-fallback"]
+  },
+  "proposedNonilionIntegration": {
+    "status": "not-implemented",
+    "workspaceAgent": true,
+    "livekitAudioParticipant": true,
+    "workspaceByokProviderResolution": true,
+    "supabasePrismaPersistence": true,
+    "clerkAuthorizationContext": true
+  }
+}
