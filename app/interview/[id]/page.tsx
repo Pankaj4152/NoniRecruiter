@@ -38,7 +38,9 @@ export default function InterviewPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  useEffect(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), [turns, processing]);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [turns, processing]);
 
   async function finishInterview() {
     setProcessing(true);
