@@ -39,8 +39,13 @@ export async function loadResumeContent(filePathOrText: string): Promise<string>
 export async function parseCandidateProfile(
   rawResumeText: string,
   candidateName: string = 'Candidate',
-  targetRole: string = 'AI Engineering Intern'
+  targetRole: string = 'AI Engineering Intern',
+  options: { useLLM?: boolean } = {}
 ): Promise<CandidateProfile> {
+  if (options.useLLM === false) {
+    return createCandidateFromFallback(rawResumeText, candidateName, targetRole);
+  }
+
   const prompt = `Analyze the following complete resume text and parse it strictly into a structured JSON object.
 
 === RESUME TEXT ===
@@ -112,10 +117,16 @@ Return strictly JSON matching this structure:
       resumeText: `Candidate ${candidateName} has experience at ${structuredJSON.experience?.[0]?.company || 'AIPlaneTech'}. Built projects: ${projectSummary}. Education: ${structuredJSON.education?.institution || 'MBM University'}.`,
       structuredResume: structuredJSON,
     };
-  } catch {
-    // Local categorized JSON parser fallback
+  } catch (error) {
+    console.warn('[resume-parser] AI parsing failed; using local parser', {
+      error: error instanceof Error ? error.message : 'Unknown parsing error',
+    });
   }
 
+  return createCandidateFromFallback(rawResumeText, candidateName, targetRole);
+}
+
+function createCandidateFromFallback(rawResumeText: string, candidateName: string, targetRole: string): CandidateProfile {
   const fallbackJSON = createLocalCategorizedJSON(rawResumeText, candidateName);
 
   const allSkills = [

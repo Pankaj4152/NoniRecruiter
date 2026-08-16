@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadResumeContent, parseCandidateProfile } from '@/lib/interview/parser';
+import { parseCandidateProfile } from '@/lib/interview/parser';
 import { InterviewEngine } from '@/lib/interview/engine';
 import { JobDescription } from '@/lib/interview/types';
 import { activeSessions } from '@/lib/interview/store';
 
 export async function POST(req: NextRequest) {
+  const requestId = crypto.randomUUID().slice(0, 8);
+  const requestStartedAt = Date.now();
+  const log = (stage: string, startedAt = requestStartedAt, details: Record<string, unknown> = {}) =>
+    console.info('[interview-setup]', { requestId, stage, durationMs: Date.now() - startedAt, ...details });
+
   try {
+    log('request-received');
     const formData = await req.formData();
     const name = (formData.get('name') as string) || 'Candidate';
     const role = (formData.get('role') as string) || 'AI Engineering Intern';
@@ -18,8 +24,15 @@ export async function POST(req: NextRequest) {
     let rawResumeText = 'Software engineering candidate with experience in full-stack development, backend systems, and LLM orchestration.';
     const resumeFile = formData.get('resumeFile') as File | null;
     const resumeTextRaw = formData.get('resumeText') as string | null;
+    const hasProvidedResume = Boolean((resumeFile && resumeFile.name) || (resumeTextRaw && resumeTextRaw.trim()));
+    log('input-validated', requestStartedAt, {
+      hasResume: hasProvidedResume,
+      resumeType: resumeFile?.name ? resumeFile.name.split('.').pop()?.toLowerCase() : resumeTextRaw ? 'text' : 'none',
+      targetDurationMinutes,
+    });
 
     if (resumeFile && resumeFile.name) {
+      const extractionStartedAt = Date.now();
       if (resumeFile.size > 5 * 1024 * 1024) {
         return NextResponse.json({ error: 'Resume must be smaller than 5 MB.' }, { status: 413 });
       }
@@ -36,12 +49,17 @@ export async function POST(req: NextRequest) {
       } else {
         rawResumeText = buffer.toString('utf-8');
       }
+      log('resume-text-extracted', extractionStartedAt, { characters: rawResumeText.length });
     } else if (resumeTextRaw && resumeTextRaw.trim().length > 0) {
       rawResumeText = resumeTextRaw;
     }
 
-    // Parse Candidate Profile
-    const candidateProfile = await parseCandidateProfile(rawResumeText, name, role);
+    const parsingStartedAt = Date.now();
+    const candidateProfile = await parseCandidateProfile(rawResumeText, name, role, { useLLM: hasProvidedResume });
+    log('candidate-profile-ready', parsingStartedAt, {
+      parser: hasProvidedResume ? 'llm-with-local-fallback' : 'local',
+      skillCount: candidateProfile.skills.length,
+    });
 
     const jobDescription: JobDescription = {
       roleTitle: role,
@@ -60,9 +78,16 @@ export async function POST(req: NextRequest) {
 
     const session = InterviewEngine.createSession(candidateProfile, jobDescription, targetDurationMinutes);
     activeSessions.set(session.sessionId, session);
+    log('session-created', requestStartedAt, { sessionId: session.sessionId });
 
-    // Initial Turn
+    const firstTurnStartedAt = Date.now();
     const firstTurn = await InterviewEngine.processTurn(session);
+    log('opening-question-ready', firstTurnStartedAt, {
+      provider: firstTurn.modelTrace?.provider,
+      model: firstTurn.modelTrace?.model,
+      usedFallback: firstTurn.modelTrace?.usedFallback,
+    });
+    log('request-completed', requestStartedAt, { sessionId: session.sessionId });
 
     return NextResponse.json({
       sessionId: session.sessionId,
@@ -71,7 +96,12 @@ export async function POST(req: NextRequest) {
       firstTurn,
     });
   } catch (error) {
-    console.error('[Agent Setup API Error]:', error);
+    console.error('[interview-setup]', {
+      requestId,
+      stage: 'request-failed',
+      durationMs: Date.now() - requestStartedAt,
+      error: error instanceof Error ? error.message : 'Unknown setup error',
+    });
     return NextResponse.json({ error: 'Failed to initialize candidate session.' }, { status: 500 });
   }
 }

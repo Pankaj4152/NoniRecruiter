@@ -7,6 +7,7 @@ import { ArrowRight, FileUp, Loader2, X } from 'lucide-react';
 export default function SetupPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [preparationMessage, setPreparationMessage] = useState('Preparing interview…');
   const [error, setError] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [form, setForm] = useState({ name: '', role: '', company: '', duration: '10', jobDescription: '', customInstructions: '' });
@@ -17,6 +18,12 @@ export default function SetupPage() {
     event.preventDefault();
     setError('');
     setIsLoading(true);
+    setPreparationMessage('Reading interview details…');
+    const progressTimers = [
+      window.setTimeout(() => setPreparationMessage(file ? 'Parsing the resume…' : 'Building candidate context…'), 1200),
+      window.setTimeout(() => setPreparationMessage('Generating the opening question…'), 4500),
+      window.setTimeout(() => setPreparationMessage('The AI is taking a little longer…'), 10000),
+    ];
     try {
       const body = new FormData();
       Object.entries(form).forEach(([key, value]) => body.append(key, value));
@@ -24,8 +31,10 @@ export default function SetupPage() {
       const response = await fetch('/api/agent/setup', { method: 'POST', body });
       const data = await response.json();
       if (!response.ok || !data.sessionId) throw new Error(data.error || 'Could not create the interview.');
+      progressTimers.forEach((timerId) => window.clearTimeout(timerId));
       router.push(`/interview/${data.sessionId}`);
     } catch (caught) {
+      progressTimers.forEach((timerId) => window.clearTimeout(timerId));
       setError(caught instanceof Error ? caught.message : 'Could not create the interview.');
       setIsLoading(false);
     }
@@ -82,7 +91,7 @@ export default function SetupPage() {
 
         {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <button disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
-          {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Preparing interview…</> : <>Start interview <ArrowRight className="h-4 w-4" /></>}
+          {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> {preparationMessage}</> : <>Start interview <ArrowRight className="h-4 w-4" /></>}
         </button>
       </form>
       <p className="mt-4 text-center text-xs text-slate-400">Text-only demo · A report is generated when the interview ends</p>

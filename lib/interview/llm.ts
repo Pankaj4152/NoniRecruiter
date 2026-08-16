@@ -34,14 +34,33 @@ export async function generateLLMCompletionDetailed(
   options: LLMCompletionOptions = {}
 ): Promise<LLMCompletionResult> {
   const provider = process.env.LLM_PROVIDER || 'gemini';
+  const callId = crypto.randomUUID().slice(0, 8);
+  const startedAt = Date.now();
+  console.info('[llm] request started', {
+    callId,
+    provider,
+    messageCount: messages.length,
+    jsonMode: Boolean(options.jsonMode),
+  });
 
+  let result: LLMCompletionResult;
   if (provider === 'gemini') {
-    return callGemini(messages, options);
+    result = await callGemini(messages, options);
   } else if (provider === 'openai') {
-    return callOpenAI(messages, options);
+    result = await callOpenAI(messages, options);
   } else {
-    return callGemini(messages, options);
+    result = await callGemini(messages, options);
   }
+
+  console.info('[llm] request completed', {
+    callId,
+    provider: result.trace.provider,
+    model: result.trace.model,
+    latencyMs: Date.now() - startedAt,
+    usedFallback: result.trace.usedFallback,
+    fallbackReason: result.trace.fallbackReason,
+  });
+  return result;
 }
 
 async function callGemini(

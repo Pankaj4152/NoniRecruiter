@@ -3,6 +3,8 @@ import { InterviewEngine } from '@/lib/interview/engine';
 import { activeSessions } from '@/lib/interview/store';
 
 export async function POST(req: NextRequest) {
+  const requestId = crypto.randomUUID().slice(0, 8);
+  const startedAt = Date.now();
   try {
     const { sessionId, answer } = await req.json();
 
@@ -21,7 +23,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Interview is already complete.' }, { status: 409 });
     }
 
+    console.info('[interview-turn]', { requestId, stage: 'processing', sessionId, turnNumber: session.turnNumber + 1, answerCharacters: answer.length });
     const turnResult = await InterviewEngine.processTurn(session, answer);
+    console.info('[interview-turn]', {
+      requestId,
+      stage: 'completed',
+      sessionId,
+      turnNumber: session.turnNumber,
+      durationMs: Date.now() - startedAt,
+      provider: turnResult.modelTrace?.provider,
+      model: turnResult.modelTrace?.model,
+      usedFallback: turnResult.modelTrace?.usedFallback,
+      isCompleted: session.isCompleted,
+    });
 
     return NextResponse.json({
       turnResult,
@@ -30,7 +44,7 @@ export async function POST(req: NextRequest) {
       isCompleted: session.isCompleted,
     });
   } catch (error) {
-    console.error('[Agent Turn API Error]:', error);
+    console.error('[interview-turn]', { requestId, stage: 'failed', durationMs: Date.now() - startedAt, error: error instanceof Error ? error.message : 'Unknown turn error' });
     return NextResponse.json({ error: 'Failed to process turn.' }, { status: 500 });
   }
 }
