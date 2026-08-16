@@ -2,9 +2,76 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { --background: #f6f7f9; --foreground: #172033; }
+:root {
+  --black: #080808;
+  --panel: #10100f;
+  --panel-soft: #171715;
+  --border: rgba(255,255,255,.14);
+  --orange: #f36b21;
+  --paper: #f0eee9;
+  --muted: #9a9994;
+}
+
 * { box-sizing: border-box; }
-html { background: var(--background); }
-body { min-height: 100vh; margin: 0; color: var(--foreground); background: var(--background); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-thumb { border-radius: 999px; background: #cbd5e1; }
+html { background: var(--black); }
+body { min-height: 100vh; margin: 0; color: var(--paper); background: var(--black); font-family: Arial, Helvetica, sans-serif; }
+button, input, textarea, select { font: inherit; }
+
+.office-shell {
+  position: relative;
+  isolation: isolate;
+  min-height: calc(100vh - 64px);
+  overflow: hidden;
+  background-color: #0a0a09;
+  background-image: url('/assets/recruitment-room.png');
+  background-position: center;
+  background-size: cover;
+}
+.office-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, rgba(5,5,5,.96) 0%, rgba(5,5,5,.73) 43%, rgba(5,5,5,.55) 100%), linear-gradient(180deg, rgba(0,0,0,.1), rgba(0,0,0,.5));
+}
+.office-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: .15;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+}
+
+.display-title {
+  font-size: clamp(2.8rem, 5.8vw, 6.4rem);
+  line-height: .92;
+  letter-spacing: -.065em;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.system-kicker { font: 700 .63rem/1.3 "Courier New", monospace; letter-spacing: .16em; text-transform: uppercase; color: #b0ada6; }
+.system-code { font: 700 .6rem/1.2 "Courier New", monospace; letter-spacing: .13em; text-transform: uppercase; color: #706f6a; }
+
+.terminal-panel { background: rgba(12,12,11,.94); border: 1px solid var(--border); box-shadow: 0 24px 80px rgba(0,0,0,.46); backdrop-filter: blur(16px); }
+.terminal-label { display: inline-flex; align-items: center; background: var(--orange); color: #100a06; padding: .34rem .55rem; font: 800 .6rem/1 "Courier New", monospace; letter-spacing: .12em; text-transform: uppercase; }
+.terminal-input { width: 100%; border: 1px solid rgba(255,255,255,.15); border-radius: 0; outline: none; color: #f5f3ef; background: rgba(255,255,255,.035); transition: border-color .16s, background .16s; }
+.terminal-input::placeholder { color: #5e5d59; }
+.terminal-input:focus { border-color: var(--orange); background: rgba(255,255,255,.055); }
+.terminal-button { border: 1px solid #ff7a33; border-radius: 0; background: var(--orange); color: #130b06; font: 800 .72rem/1 "Courier New", monospace; letter-spacing: .11em; text-transform: uppercase; transition: background .15s, color .15s, transform .15s; }
+.terminal-button:hover:not(:disabled) { background: #ff7c35; transform: translateY(-1px); }
+.terminal-button:active:not(:disabled) { transform: translateY(0); }
+
+.glass-panel, .surface-card, .glass-panel-glow { background: rgba(15,15,14,.94); border: 1px solid var(--border); box-shadow: 0 18px 55px rgba(0,0,0,.34); }
+.eyebrow { display: inline-flex; color: #f39a68; font-size: .62rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
+
+::-webkit-scrollbar { width: 7px; }
+::-webkit-scrollbar-track { background: #080808; }
+::-webkit-scrollbar-thumb { background: #3d3c39; }
+
+@media (max-width: 900px) {
+  .office-shell { background-position: 42% center; }
+  .office-shell::before { background: rgba(5,5,5,.78); }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
