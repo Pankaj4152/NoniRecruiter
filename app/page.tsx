@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, BriefcaseBusiness, Building2, Clock3, FileText, FileUp, Loader2, SlidersHorizontal, UserRound, X } from 'lucide-react';
+import { ArrowRight, BriefcaseBusiness, Building2, Clock3, FileText, FileUp, Loader2, ShieldCheck, SlidersHorizontal, Sparkles, UserRound, X, Zap } from 'lucide-react';
 
 export default function SetupPage() {
   const router = useRouter();
@@ -36,16 +36,19 @@ export default function SetupPage() {
   return (
     <main className="office-shell min-h-[calc(100vh-4rem)] overflow-y-auto">
       <div className="setup-backdrop mx-auto flex min-h-[calc(100vh-4rem)] max-w-[1600px] flex-col px-4 py-7 sm:px-7 sm:py-9">
+        <div className="game-grid pointer-events-none absolute inset-0" />
+        <span className="pixel-dot absolute left-[12%] top-[20%]" /><span className="pixel-dot absolute right-[14%] top-[31%] [animation-delay:1.2s]" />
         <div className="text-center">
-          <p className="system-kicker text-[#cfcbc3]">NoniRecruiter · Interview room configuration</p>
-          <h1 className="mt-3 text-3xl font-extrabold uppercase tracking-[-.04em] text-[#f0eee9] sm:text-5xl">Brief the hiring agent</h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[#aaa7a0]">The recruiter and candidate are ready. Add the role context to begin the session.</p>
+          <p className="system-kicker inline-flex items-center gap-2 border border-[#f36b21]/30 bg-black/40 px-3 py-2 text-[#f4a275]"><Sparkles className="h-3.5 w-3.5" /> New interview mission</p>
+          <h1 className="mt-4 text-3xl font-extrabold uppercase tracking-[-.04em] text-[#f0eee9] sm:text-5xl">Configure your interview room</h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[#aaa7a0]">Brief your AI recruiter, load the candidate profile, and begin the interview quest.</p>
+          <div className="mx-auto mt-5 grid max-w-xl grid-cols-3 gap-2 font-mono text-[9px] font-bold uppercase tracking-wider sm:text-[10px]"><span className="quest-chip quest-chip-active px-2 py-2">01 · Brief</span><span className="quest-chip px-2 py-2">02 · Interview</span><span className="quest-chip px-2 py-2">03 · Report</span></div>
         </div>
 
-        <section className="setup-overlay mx-auto mt-7 w-full max-w-5xl">
+        <section className="setup-overlay mission-card mx-auto mt-7 w-full max-w-5xl">
           <div className="flex items-center justify-between border-b border-white/15 px-5 py-3 sm:px-7">
-            <span className="terminal-label">Required information</span>
-            <span className="system-code">Room · 01 / Setup</span>
+            <span className="terminal-label"><Zap className="mr-1.5 h-3 w-3" /> Mission briefing</span>
+            <span className="system-code flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5 text-emerald-400" /> Grounded mode</span>
           </div>
           <form onSubmit={handleSubmit} className="grid gap-4 p-4 sm:p-6 lg:grid-cols-[1fr_1fr]">
             <div className="setup-section space-y-4 p-4 sm:p-5">

@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowUp, Clock3, Loader2, Mic, Square, Volume2, VolumeX } from 'lucide-react';
+import { ArrowUp, Clock3, Loader2, Mic, Radio, Sparkles, Square, Volume2, VolumeX, Zap } from 'lucide-react';
 import { InterviewPhase, InterviewTurn } from '@/lib/interview/types';
 
 interface SessionView {
@@ -239,23 +239,26 @@ export default function InterviewPage() {
   const answeredQuestions = turns.filter((turn) => turn.speaker === 'candidate').length;
   const remainingSeconds = Math.max(0, session.targetDurationMinutes * 60 - elapsed);
   const remainingTime = `${Math.floor(remainingSeconds / 60).toString().padStart(2, '0')}:${(remainingSeconds % 60).toString().padStart(2, '0')}`;
+  const remainingPercent = Math.max(0, Math.min(100, (remainingSeconds / (session.targetDurationMinutes * 60)) * 100));
 
   return (
     <main className="office-shell h-[calc(100vh-4rem)] min-h-[650px]">
+      <div className="game-grid pointer-events-none absolute inset-0 opacity-50" />
+      <span className="pixel-dot absolute left-[9%] top-[30%]" /><span className="pixel-dot absolute right-[8%] top-[45%] [animation-delay:1.6s]" />
       <div className="absolute left-4 right-4 top-4 flex items-start justify-between gap-4 sm:left-7 sm:right-7 sm:top-6">
-        <div className="terminal-panel px-4 py-3">
-          <div className="flex items-center gap-2"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /><span className="system-kicker text-[#e3dfd7]">Live interview</span></div>
+        <div className="hud-panel px-4 py-3">
+          <div className="flex items-center gap-2"><Radio className="h-3.5 w-3.5 animate-pulse text-emerald-400" /><span className="system-kicker text-[#e3dfd7]">Live mission</span><span className="rounded-sm bg-[#f36b21]/15 px-2 py-1 font-mono text-[8px] font-bold uppercase tracking-wider text-[#f4a275]">{phase.replace('_', ' ')}</span></div>
           <p className="mt-1 text-xs text-[#8f8c85]">{session.candidate.name} · {session.job.roleTitle}</p>
         </div>
         <div className="flex items-stretch gap-2">
-          <div className="terminal-panel flex items-center gap-2 px-4 py-3"><Clock3 className="h-4 w-4 text-[#f08b53]" /><div><span className="system-code block">Remaining</span><span className="font-mono text-sm font-bold tabular-nums text-[#e7e3dc]">{remainingTime}</span></div></div>
+          <div className="hud-panel min-w-32 px-4 py-3"><div className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-[#f08b53]" /><div><span className="system-code block">Time energy</span><span className="font-mono text-sm font-bold tabular-nums text-[#e7e3dc]">{remainingTime}</span></div></div><div className="hud-bar mt-2"><span style={{ width: `${remainingPercent}%` }} /></div></div>
           <button onClick={() => void finishInterview()} disabled={processing} className="terminal-panel px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-wider text-[#c8c4bc] hover:border-[#f36b21] hover:text-[#f08b53] disabled:opacity-50">End session</button>
         </div>
       </div>
 
       <section className="question-bubble z-10 p-5 sm:p-6">
         <div className="mb-3 flex items-center justify-between gap-4">
-          <div><span className="terminal-label">Noni · AI Recruiter</span><span className="ml-3 system-code">Question {answeredQuestions + 1}</span></div>
+          <div><span className="terminal-label"><Sparkles className="mr-1.5 h-3 w-3" /> Noni · Recruiter</span><span className="ml-3 system-code">Quest {answeredQuestions + 1}</span></div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={toggleAutomaticVoice} aria-label={autoSpeak ? 'Disable automatic voice' : 'Enable automatic voice'} title={autoSpeak ? 'Automatic voice on' : 'Automatic voice off'} className={`border p-2 ${autoSpeak ? 'border-[#f36b21]/50 text-[#f08b53]' : 'border-white/15 text-[#77746e]'}`}>{autoSpeak ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>
             {latestInterviewerTurn && <button type="button" onClick={() => speakMessage(latestInterviewerTurn)} aria-label={speakingTurnId === latestInterviewerTurn.turnId ? 'Stop speaking' : 'Replay question'} className="border border-white/15 p-2 text-[#8d8a84] hover:border-[#f36b21] hover:text-[#f08b53]">{speakingTurnId === latestInterviewerTurn.turnId ? <Square className="h-4 w-4 fill-current" /> : <Volume2 className="h-4 w-4" />}</button>}
@@ -266,7 +269,7 @@ export default function InterviewPage() {
 
       <div className="absolute bottom-5 left-1/2 z-20 w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 sm:bottom-7">
         <form onSubmit={submitAnswer} className="answer-dock p-3 sm:p-4">
-          <div className="mb-2 flex items-center justify-between"><span className="system-kicker">Your response</span><span className="system-code">Review before sending</span></div>
+          <div className="mb-2 flex items-center justify-between"><span className="system-kicker flex items-center gap-2"><Zap className="h-3.5 w-3.5 text-[#f08b53]" /> Your move</span><span className="system-code">Answer to unlock next quest</span></div>
           <div className="flex items-end gap-2 border border-white/15 bg-black/35 p-1.5 focus-within:border-[#f36b21]">
             <button type="button" onClick={toggleMicrophone} disabled={processing} aria-label={listening ? 'Stop voice typing' : 'Start voice typing'} className={`border p-2.5 transition disabled:opacity-30 ${listening ? 'animate-pulse border-red-500 bg-red-500/15 text-red-400' : 'border-white/10 text-[#7e7b75] hover:border-[#f36b21] hover:text-[#f08b53]'}`}>{listening ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-4 w-4" />}</button>
             <textarea autoFocus rows={2} value={answer} disabled={processing} onChange={(event) => setAnswer(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder={listening ? 'Listening… click stop when finished' : 'Type your answer or use the microphone…'} className="max-h-32 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-5 text-[#e7e3dc] outline-none placeholder:text-[#686660] disabled:opacity-60" />
