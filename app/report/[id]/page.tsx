@@ -1,295 +1,75 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { CheckCircle, AlertTriangle, ArrowLeft, Download, ShieldCheck, Quote, MessageSquareText } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, Clock3, Download, FileCheck2, MessageSquareText, Quote, RotateCcw, ShieldCheck, Sparkles, Target, Trophy } from 'lucide-react';
+import { FinalInterviewReport, TurnEvaluation } from '@/lib/interview/types';
+
+type ReportTab = 'overview' | 'evidence' | 'transcript';
 
 export default function ReportDashboardPage() {
-  const params = useParams();
+  const { id: sessionId } = useParams<{ id: string }>();
   const router = useRouter();
-  const sessionId = params.id as string;
-
-  const [report, setReport] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [report, setReport] = useState<FinalInterviewReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<ReportTab>('overview');
+  const [expandedTurn, setExpandedTurn] = useState<number | null>(null);
 
   useEffect(() => {
-    async function fetchReport() {
-      try {
-        const res = await fetch('/api/agent/report', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId }),
-        });
-        const data = await res.json();
-        if (data.report) {
-          setReport(data.report);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchReport();
+    fetch('/api/agent/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId }) })
+      .then(async (response) => { const data = await response.json(); if (!response.ok || !data.report) throw new Error(data.error || 'Report could not be generated.'); setReport(data.report); })
+      .catch((caught) => setError(caught instanceof Error ? caught.message : 'Report could not be generated.'))
+      .finally(() => setLoading(false));
   }, [sessionId]);
 
-  if (isLoading) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3">
-        <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-        <span className="text-sm font-medium">Generating Evidence-Based Report Card...</span>
-      </div>
-    );
+  if (loading) return <main className="office-shell grid min-h-[calc(100vh-4rem)] place-items-center"><div className="hud-panel mission-card px-10 py-8 text-center"><Sparkles className="mx-auto h-6 w-6 animate-pulse text-[#f36b21]" /><p className="mt-4 system-kicker text-[#f4a275]">Building evidence report</p><div className="hud-bar mx-auto mt-4 w-56"><span className="animate-pulse" style={{ width: '72%' }} /></div></div></main>;
+  if (!report) return <main className="office-shell grid min-h-[calc(100vh-4rem)] place-items-center px-5"><div className="hud-panel max-w-md p-7 text-center"><AlertTriangle className="mx-auto h-6 w-6 text-amber-400" /><p className="mt-3 text-sm text-[#d6d2ca]">{error || 'Report not found.'}</p><button onClick={() => router.push('/')} className="terminal-button mt-5 px-5 py-3">New interview</button></div></main>;
+
+  const verdictTone = ['STRONG HIRE', 'HIRE'].includes(report.verdict) ? 'text-emerald-300 border-emerald-400/40 bg-emerald-400/10' : report.verdict === 'LEAN HIRE' ? 'text-amber-300 border-amber-400/40 bg-amber-400/10' : 'text-rose-300 border-rose-400/40 bg-rose-400/10';
+  const duration = `${Math.floor(report.timing.actualDurationSeconds / 60)}m ${report.timing.actualDurationSeconds % 60}s`;
+  const competencies = [['Role accuracy & depth', report.scores.technicalAccuracy, 'from-[#f36b21] to-[#ffc15c]'], ['Communication & structure', report.scores.communicationClarity, 'from-emerald-500 to-cyan-400'], ['Problem solving', report.scores.problemSolving, 'from-violet-500 to-fuchsia-400']] as const;
+
+  function downloadReport() {
+    if (!report) return;
+    const lines = ['# NoniRecruiter Interview Report', '', `**Candidate:** ${report.candidateName}`, `**Role:** ${report.targetRole}`, `**Verdict:** ${report.verdict} (${report.overallScore}/100)`, '', '## Executive summary', report.executiveSummary, '', '## Strengths', ...report.strengths.map((item) => `- ${item}`), '', '## Areas for improvement', ...report.areasForImprovement.map((item) => `- ${item}`), '', '## Transcript', ...report.fullTranscript.map((turn) => `**${turn.speaker}:** ${turn.text}`)];
+    const url = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' }));
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = `noni-recruiter-${report.sessionId}.md`; anchor.click(); URL.revokeObjectURL(url);
   }
 
-  if (!report) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-4">
-        <p>No report found for session ID: {sessionId}</p>
-        <button
-          onClick={() => router.push('/')}
-          className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl"
-        >
-          Back to Setup
-        </button>
-      </div>
-    );
-  }
-
-  const getVerdictBadge = (verdict: string) => {
-    switch (verdict) {
-      case 'STRONG HIRE':
-      case 'HIRE':
-        return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
-      case 'LEAN HIRE':
-        return 'bg-amber-500/20 text-amber-300 border-amber-500/40';
-      default:
-        return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
-    }
-  };
-
-  const downloadReport = () => {
-    const lines = [
-      '# NoniRecruiter Interview Report',
-      '',
-      `**Candidate:** ${report.candidateName}`,
-      `**Role:** ${report.targetRole}`,
-      `**Verdict:** ${report.verdict} (${report.overallScore}/100)`,
-      `**Requested duration:** ${report.timing.requestedDurationMinutes} minutes`,
-      `**Actual duration:** ${Math.floor(report.timing.actualDurationSeconds / 60)}m ${report.timing.actualDurationSeconds % 60}s`,
-      `**Started:** ${new Date(report.timing.startedAt).toLocaleString()}`,
-      `**Ended:** ${new Date(report.timing.endedAt).toLocaleString()}`,
-      `**Completion reason:** ${report.timing.completionReason}`,
-      `**Phases covered:** ${report.timing.phasesCovered.join(' → ')}`,
-      '',
-      '## Competency scores',
-      `- Technical accuracy: ${report.scores.technicalAccuracy}/100`,
-      `- Communication: ${report.scores.communicationClarity}/100`,
-      `- Problem solving: ${report.scores.problemSolving}/100`,
-      '',
-      '## Evidence-backed strengths',
-      ...report.strengths.map((item: string) => `- “${item}”`),
-      '',
-      '## Areas for improvement',
-      ...report.areasForImprovement.map((item: string) => `- ${item}`),
-      '',
-      '## Transcript',
-      ...report.fullTranscript.map((turn: any) => `**${turn.speaker}:** ${turn.text}`),
-    ];
-    const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `noni-recruiter-${report.sessionId}.md`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  };
-
-  return (
-    <div className="max-w-6xl w-full mx-auto px-6 py-10 flex-1 space-y-8">
-      {/* Top Header & Actions */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => router.push('/')}
-          className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Setup
-        </button>
-
-        <button
-          onClick={downloadReport}
-          className="flex items-center gap-2 py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-600/20"
-        >
-          <Download className="w-4 h-4" />
-          Export Report (.MD)
-        </button>
-      </div>
-
-      {/* Executive Overview Hero Card */}
-      <div className="glass-panel-glow rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="space-y-2 text-center md:text-left">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold">
-            <ShieldCheck className="w-3.5 h-3.5" /> Verified Evidence Audit
-          </div>
-          <h2 className="text-3xl font-extrabold text-white">{report.candidateName}</h2>
-          <p className="max-w-2xl text-sm leading-6 text-slate-300">{report.executiveSummary}</p>
-          <p className="text-xs text-cyan-300"><strong>Next step:</strong> {report.recommendedNextStep}</p>
-          <p className="text-sm text-slate-400">
-            Target Role: <strong className="text-slate-200">{report.targetRole}</strong> • Session Date: {report.date}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-6 bg-slate-900/80 p-4 rounded-xl border border-slate-800">
-          <div className="text-center">
-            <div className="text-3xl font-black text-cyan-300">{report.overallScore}</div>
-            <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Overall Score</div>
-          </div>
-
-          <div className="h-10 w-[1px] bg-slate-800" />
-
-          <div className="text-center">
-            <div className={`px-3 py-1 rounded-lg text-sm font-black border ${getVerdictBadge(report.verdict)}`}>
-              {report.verdict}
-            </div>
-            <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mt-1">Verdict</div>
-            <div className="text-[10px] text-slate-500 mt-1">{report.confidence} confidence</div>
-          </div>
+  return <main className="min-h-[calc(100vh-4rem)] bg-[#090908] text-[#f0eee9]">
+    <section className="relative overflow-hidden border-b border-white/10 bg-[radial-gradient(circle_at_25%_10%,rgba(243,107,33,.2),transparent_35%),linear-gradient(180deg,#17100c,#090908)] px-4 py-8 sm:px-7">
+      <div className="game-grid pointer-events-none absolute inset-0 opacity-70" />
+      <div className="relative mx-auto max-w-6xl">
+        <div className="flex flex-wrap items-center justify-between gap-3"><button onClick={() => router.push('/')} className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[#99958e] hover:text-white"><ArrowLeft className="h-4 w-4" /> New interview</button><button onClick={downloadReport} className="terminal-button flex items-center gap-2 px-4 py-3"><Download className="h-4 w-4" /> Export report</button></div>
+        <div className="mt-8 grid items-center gap-7 lg:grid-cols-[1fr_auto]">
+          <div><span className="terminal-label"><Trophy className="mr-2 h-3.5 w-3.5" /> Interview complete</span><h1 className="mt-5 text-4xl font-black uppercase tracking-[-.045em] sm:text-6xl">{report.candidateName}</h1><p className="mt-2 font-mono text-xs uppercase tracking-[.14em] text-[#a9a49c]">{report.targetRole} · {report.date}</p><p className="mt-5 max-w-3xl text-sm leading-7 text-[#c5c0b7]">{report.executiveSummary}</p></div>
+          <div className="flex items-center gap-5"><div className="relative grid h-36 w-36 place-items-center rounded-full" style={{ background: `conic-gradient(#f36b21 ${report.overallScore}%, rgba(255,255,255,.08) 0)` }}><div className="grid h-28 w-28 place-items-center rounded-full bg-[#0b0a09] text-center"><div><strong className="block text-4xl font-black text-white">{report.overallScore}</strong><span className="system-code">Overall XP</span></div></div></div><div><span className={`block border px-4 py-2 text-center font-mono text-sm font-black ${verdictTone}`}>{report.verdict}</span><p className="mt-2 text-center font-mono text-[9px] uppercase tracking-wider text-[#77736c]">{report.confidence} confidence</p></div></div>
         </div>
       </div>
+    </section>
 
-      <div className="surface-card rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Interview timing audit</p>
-            <p className="text-sm text-slate-300 mt-1">Scheduling details are recorded for the recruiter, not shown to the candidate.</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div><p className="text-[10px] uppercase text-slate-500">Requested</p><p className="text-sm font-semibold text-white mt-1">{report.timing.requestedDurationMinutes} minutes</p></div>
-          <div><p className="text-[10px] uppercase text-slate-500">Actual</p><p className="text-sm font-semibold text-white mt-1">{Math.floor(report.timing.actualDurationSeconds / 60)}m {report.timing.actualDurationSeconds % 60}s</p></div>
-          <div><p className="text-[10px] uppercase text-slate-500">Started</p><p className="text-sm font-semibold text-white mt-1">{new Date(report.timing.startedAt).toLocaleTimeString()}</p></div>
-          <div><p className="text-[10px] uppercase text-slate-500">Ended</p><p className="text-sm font-semibold text-white mt-1">{new Date(report.timing.endedAt).toLocaleTimeString()}</p></div>
-        </div>
-        <div className="mt-4 border-t border-white/[0.06] pt-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between text-xs">
-          <span className="text-slate-400"><strong className="text-slate-200">Completion:</strong> {report.timing.completionReason}</span>
-          <span className="text-indigo-300">{report.timing.phasesCovered.map((item: string) => item.replaceAll('_', ' ')).join(' → ')}</span>
-        </div>
-        <div className="mt-3 text-[11px] text-slate-500">
-          AI runtime: {report.modelUsage.providers.join(', ') || 'not tracked'} · {report.modelUsage.models.join(', ') || 'not tracked'} · fallback {report.modelUsage.fallbackCalls}/{report.modelUsage.totalTrackedCalls} · avg {report.modelUsage.averageLatencyMs}ms
-        </div>
-      </div>
+    <div className="sticky top-0 z-30 border-b border-white/10 bg-[#090908]/95 px-4 backdrop-blur-xl sm:px-7"><nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto py-2">{([['overview', Target, 'Overview'], ['evidence', ShieldCheck, 'Evidence audit'], ['transcript', MessageSquareText, 'Transcript']] as const).map(([value, Icon, label]) => <button key={value} onClick={() => setActiveTab(value)} className={`flex items-center gap-2 whitespace-nowrap border px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-wider transition ${activeTab === value ? 'border-[#f36b21]/60 bg-[#f36b21]/10 text-[#ff9a61]' : 'border-transparent text-[#77736c] hover:text-white'}`}><Icon className="h-4 w-4" />{label}</button>)}</nav></div>
 
-      {/* Competency Scores Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          { label: 'Technical Accuracy & Depth', score: report.scores.technicalAccuracy, color: 'from-indigo-500 to-cyan-400' },
-          { label: 'Communication & Structure', score: report.scores.communicationClarity, color: 'from-emerald-500 to-teal-400' },
-          { label: 'Problem Solving & Systems', score: report.scores.problemSolving, color: 'from-purple-500 to-indigo-400' },
-        ].map((c, i) => (
-          <div key={i} className="glass-panel rounded-2xl p-5 space-y-3">
-            <div className="flex justify-between items-center text-xs font-bold text-slate-300">
-              <span>{c.label}</span>
-              <span className="text-cyan-300 font-extrabold">{c.score} / 100</span>
-            </div>
-            <div className="h-2 w-full bg-slate-900 rounded-full overflow-hidden">
-              <div className={`h-full bg-gradient-to-r ${c.color}`} style={{ width: `${c.score}%` }} />
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-7">
+      {activeTab === 'overview' && <>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[[Clock3, 'Duration', duration], [FileCheck2, 'Evidence turns', String(report.turnEvaluations.length)], [ShieldCheck, 'Completion', report.timing.completionReason], [Sparkles, 'AI runtime', report.modelUsage.models.join(', ') || 'Not tracked']].map(([Icon, label, value]) => <div key={String(label)} className="hud-panel p-4"><Icon className="h-4 w-4 text-[#f08b53]" /><p className="system-code mt-4">{String(label)}</p><p className="mt-1 truncate text-sm font-bold text-[#e9e5dd]" title={String(value)}>{String(value)}</p></div>)}</div>
+        <section className="mission-card bg-[#11110f] p-6 sm:p-8"><div className="flex items-center justify-between"><div><p className="system-kicker text-[#f08b53]">Capability map</p><h2 className="mt-2 text-xl font-black uppercase">Competency scores</h2></div><span className="system-code">Verified / 100</span></div><div className="mt-7 grid gap-5 md:grid-cols-3">{competencies.map(([label, score, color]) => <div key={label}><div className="mb-2 flex justify-between text-xs"><span className="text-[#bbb6ae]">{label}</span><strong className="text-white">{score}</strong></div><div className="h-2 overflow-hidden bg-white/[.06]"><div className={`h-full bg-gradient-to-r ${color} transition-all duration-1000`} style={{ width: `${score}%` }} /></div></div>)}</div></section>
+        <div className="grid gap-6 lg:grid-cols-2"><InsightCard positive title="Evidence-backed strengths" items={report.strengths} /><InsightCard title="Growth opportunities" items={report.areasForImprovement} /></div>
+        <section className="hud-panel flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between"><div><p className="system-kicker text-[#f08b53]">Recommended action</p><p className="mt-2 text-sm leading-6 text-[#d4d0c8]">{report.recommendedNextStep}</p></div><button onClick={() => router.push('/')} className="terminal-button flex shrink-0 items-center justify-center gap-2 px-5 py-3"><RotateCcw className="h-4 w-4" /> Run another</button></section>
+      </>}
 
-      {/* Strengths vs Areas for Improvement */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Strengths */}
-        <div className="glass-panel rounded-2xl p-6 space-y-4">
-          <h3 className="text-sm font-bold text-emerald-400 flex items-center gap-2">
-            <CheckCircle className="w-4 h-4" /> Key Strengths & Verifier Quotes
-          </h3>
-          <ul className="space-y-2 text-xs text-slate-300">
-            {report.strengths.map((s: string, idx: number) => (
-              <li key={idx} className="p-3 bg-emerald-950/20 border border-emerald-500/20 rounded-xl">
-                "{s}"
-              </li>
-            ))}
-          </ul>
-        </div>
+      {activeTab === 'evidence' && <section><div className="mb-5"><p className="system-kicker text-[#f08b53]">Decision trace</p><h2 className="mt-2 text-2xl font-black uppercase">Turn-by-turn audit</h2><p className="mt-2 text-sm text-[#85817a]">Open any turn to inspect the answer, verifier quote, feedback, and score inputs.</p></div><div className="space-y-3">{report.turnEvaluations.length ? report.turnEvaluations.map((item) => <EvidenceTurn key={item.turnId} item={item} open={expandedTurn === item.turnId} onToggle={() => setExpandedTurn(expandedTurn === item.turnId ? null : item.turnId)} />) : <p className="hud-panel p-5 text-sm text-[#88847d]">No candidate answers were captured.</p>}</div></section>}
 
-        {/* Areas for Improvement */}
-        <div className="glass-panel rounded-2xl p-6 space-y-4">
-          <h3 className="text-sm font-bold text-amber-400 flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4" /> Areas for Improvement
-          </h3>
-          <ul className="space-y-2 text-xs text-slate-300">
-            {report.areasForImprovement.length > 0 ? (
-              report.areasForImprovement.map((a: string, idx: number) => (
-                <li key={idx} className="p-3 bg-amber-950/20 border border-amber-500/20 rounded-xl">
-                  "{a}"
-                </li>
-              ))
-            ) : (
-              <li className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl text-slate-400 italic">
-                No major red flags identified during the session.
-              </li>
-            )}
-          </ul>
-        </div>
-      </div>
-
-      <div className="surface-card rounded-3xl p-6 sm:p-8">
-        <div className="flex items-start justify-between gap-4 mb-6">
-          <div>
-            <div className="eyebrow">Decision trace</div>
-            <h3 className="text-xl font-bold text-white mt-3">Turn-by-turn evidence audit</h3>
-            <p className="text-xs text-slate-500 mt-1">Every score remains connected to the answer that produced it.</p>
-          </div>
-          <ShieldCheck className="w-6 h-6 text-cyan-300" />
-        </div>
-        <div className="space-y-3">
-          {report.turnEvaluations.length > 0 ? report.turnEvaluations.map((evaluation: any) => (
-            <div key={evaluation.turnId} className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 grid md:grid-cols-[110px_1fr_180px] gap-4 items-start">
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate-500">Turn {evaluation.turnId}</p>
-                <p className="text-xs font-semibold text-indigo-300 mt-1">{evaluation.phase.replaceAll('_', ' ')}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-300 leading-6">{evaluation.candidateAnswer}</p>
-                {evaluation.strengthsEvidence[0] && (
-                  <p className="mt-3 flex gap-2 text-xs text-emerald-300"><Quote className="w-3.5 h-3.5 shrink-0" /> “{evaluation.strengthsEvidence[0]}”</p>
-                )}
-              </div>
-              <div className="grid grid-cols-3 gap-1 text-center">
-                {[['Tech', evaluation.technicalAccuracyScore], ['Comm', evaluation.communicationScore], ['Solve', evaluation.problemSolvingScore]].map(([label, score]) => (
-                  <div key={String(label)} className="rounded-lg bg-slate-950/60 p-2">
-                    <p className="text-sm font-bold text-white">{String(score)}</p>
-                    <p className="text-[9px] uppercase text-slate-500">{String(label)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )) : <p className="text-sm text-slate-500">No candidate answers were captured for evaluation.</p>}
-        </div>
-      </div>
-
-      <details className="surface-card rounded-3xl p-6 group">
-        <summary className="list-none cursor-pointer flex items-center justify-between">
-          <span className="flex items-center gap-2 text-sm font-semibold text-white"><MessageSquareText className="w-4 h-4 text-cyan-300" /> Full interview transcript</span>
-          <span className="text-[10px] uppercase tracking-wider text-slate-500 group-open:hidden">Open transcript</span>
-        </summary>
-        <div className="mt-5 space-y-3 border-t border-white/[0.06] pt-5">
-          {report.fullTranscript.map((turn: any) => (
-            <div key={turn.turnId} className={`max-w-[88%] rounded-2xl p-4 text-sm leading-6 ${turn.speaker === 'candidate' ? 'ml-auto bg-indigo-500/10 border border-indigo-400/15 text-indigo-100' : 'bg-white/[0.025] border border-white/[0.06] text-slate-300'}`}>
-              <p className="text-[9px] uppercase tracking-widest text-slate-500 mb-1">{turn.speaker} · {turn.phase.replaceAll('_', ' ')}</p>
-              {turn.text}
-            </div>
-          ))}
-        </div>
-      </details>
-
-      <div className="rounded-2xl border border-indigo-400/15 bg-indigo-400/[0.04] px-5 py-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between text-xs text-slate-400">
-        <span><strong className="text-slate-200">Nonilion-ready concept:</strong> this report can be posted back into the persistent workspace as structured agent output.</span>
-        <span className="text-indigo-300 whitespace-nowrap">agent.json · Workspace memory · BYOK</span>
-      </div>
+      {activeTab === 'transcript' && <section><div className="mb-5"><p className="system-kicker text-[#f08b53]">Complete record</p><h2 className="mt-2 text-2xl font-black uppercase">Interview transcript</h2></div><div className="mission-card space-y-4 bg-[#10100e] p-5 sm:p-7">{report.fullTranscript.map((turn) => <div key={turn.turnId} className={`max-w-[90%] border p-4 ${turn.speaker === 'candidate' ? 'ml-auto border-[#f36b21]/25 bg-[#f36b21]/[.08]' : 'border-white/10 bg-white/[.025]'}`}><p className="system-code mb-2">{turn.speaker} · {turn.phase.replaceAll('_', ' ')}</p><p className="text-sm leading-6 text-[#d5d1c9]">{turn.text}</p></div>)}</div></section>}
     </div>
-  );
+  </main>;
+}
+
+function InsightCard({ title, items, positive = false }: { title: string; items: string[]; positive?: boolean }) {
+  return <section className="hud-panel p-6"><h3 className={`flex items-center gap-2 text-sm font-bold ${positive ? 'text-emerald-300' : 'text-amber-300'}`}>{positive ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}{title}</h3><div className="mt-4 space-y-3">{items.length ? items.map((item, index) => <div key={index} className="border border-white/10 bg-black/20 p-4 text-xs leading-6 text-[#c9c5bd]"><Quote className="mb-2 h-3.5 w-3.5 text-[#f08b53]" />{item}</div>) : <p className="text-xs italic text-[#77736c]">No significant concerns recorded.</p>}</div></section>;
+}
+
+function EvidenceTurn({ item, open, onToggle }: { item: TurnEvaluation; open: boolean; onToggle: () => void }) {
+  return <article className="hud-panel overflow-hidden"><button onClick={onToggle} className="flex w-full items-center gap-4 p-5 text-left"><span className="grid h-9 w-9 shrink-0 place-items-center border border-[#f36b21]/35 bg-[#f36b21]/10 font-mono text-xs font-black text-[#ff9a61]">{item.turnId}</span><div className="min-w-0 flex-1"><p className="system-code">{item.phase.replaceAll('_', ' ')}</p><p className="mt-1 truncate text-sm text-[#d2cec6]">{item.candidateAnswer}</p></div><div className="hidden grid-cols-3 gap-2 sm:grid">{[['Role', item.technicalAccuracyScore], ['Comm', item.communicationScore], ['Solve', item.problemSolvingScore]].map(([label, score]) => <span key={String(label)} className="min-w-14 bg-black/30 px-2 py-1 text-center"><strong className="block text-xs text-white">{score}</strong><small className="system-code">{label}</small></span>)}</div><ChevronDown className={`h-4 w-4 text-[#77736c] transition ${open ? 'rotate-180' : ''}`} /></button>{open && <div className="grid gap-4 border-t border-white/10 bg-black/20 p-5 md:grid-cols-[1fr_260px]"><div><p className="system-code">Candidate answer</p><p className="mt-2 text-sm leading-7 text-[#cbc7bf]">{item.candidateAnswer}</p>{item.strengthsEvidence[0] && <blockquote className="mt-4 border-l-2 border-emerald-400 bg-emerald-400/[.05] p-3 text-xs leading-6 text-emerald-200">“{item.strengthsEvidence[0]}”</blockquote>}</div><div className="border border-white/10 bg-white/[.025] p-4"><p className="system-code">Evaluator notes</p><p className="mt-2 text-xs leading-6 text-[#aaa69e]">{item.feedbackNotes}</p></div></div>}</article>;
 }
