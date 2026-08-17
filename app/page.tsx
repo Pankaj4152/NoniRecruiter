@@ -14,7 +14,9 @@ export default function SetupPage() {
   const update = (field: keyof typeof form, value: string) => setForm((current) => ({ ...current, [field]: value }));
 
   async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault(); setError(''); setIsLoading(true); setPreparationMessage('Reading interview details…');
+    event.preventDefault();
+    if (!file) { setError('Please attach the candidate resume before entering the interview room.'); return; }
+    setError(''); setIsLoading(true); setPreparationMessage('Reading interview details…');
     const timers = [
       window.setTimeout(() => setPreparationMessage(file ? 'Parsing the resume…' : 'Building candidate context…'), 1200),
       window.setTimeout(() => setPreparationMessage('Generating the opening question…'), 4500),
@@ -50,13 +52,13 @@ export default function SetupPage() {
               <p className="system-kicker flex items-center gap-2 text-[#f08b53]"><UserRound className="h-4 w-4" /> 01 / Candidate & role</p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="text-xs font-semibold text-[#bbb8b1]">Candidate name<div className="relative"><UserRound className="field-icon" /><input required autoComplete="name" placeholder="e.g. Pankaj Kumar" value={form.name} onChange={(e) => update('name', e.target.value)} className={`${input} pl-10`} /></div></label>
-                <label className="text-xs font-semibold text-[#bbb8b1]">Job title<div className="relative"><BriefcaseBusiness className="field-icon" /><input required placeholder="e.g. AI Engineering Intern" value={form.role} onChange={(e) => update('role', e.target.value)} className={`${input} pl-10`} /></div></label>
+                <label className="text-xs font-semibold text-[#bbb8b1]">Job title<div className="relative"><BriefcaseBusiness className="field-icon" /><input required placeholder="e.g. Operations Associate" value={form.role} onChange={(e) => update('role', e.target.value)} className={`${input} pl-10`} /></div></label>
                 <label className="text-xs font-semibold text-[#bbb8b1]">Company<div className="relative"><Building2 className="field-icon" /><input required placeholder="e.g. Nonilion" value={form.company} onChange={(e) => update('company', e.target.value)} className={`${input} pl-10`} /></div></label>
                 <label className="text-xs font-semibold text-[#bbb8b1]">Interview length<div className="relative"><Clock3 className="field-icon" /><select value={form.duration} onChange={(e) => update('duration', e.target.value)} className={`${input} pl-10`}><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option></select></div></label>
               </div>
               <div>
-                <span className="text-xs font-semibold text-[#bbb8b1]">Candidate resume <span className="font-normal text-[#63615d]">Optional</span></span>
-                {file ? <div className="mt-1.5 flex items-center justify-between border border-[#f36b21]/50 bg-[#f36b21]/5 px-3 py-3"><span className="truncate font-mono text-xs text-[#f4a275]">{file.name}</span><button type="button" onClick={() => setFile(null)} aria-label="Remove resume" className="ml-3 text-[#77746e] hover:text-white"><X className="h-4 w-4" /></button></div> : <label className="mt-1.5 flex cursor-pointer items-center justify-center gap-2 border border-dashed border-white/20 bg-white/[.025] px-4 py-3 text-xs text-[#85827c] transition hover:border-[#f36b21] hover:text-[#ef9a69]"><input type="file" accept=".pdf,.txt,.md" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] || null)} /><FileUp className="h-4 w-4" /> Upload PDF, TXT, or Markdown</label>}
+                <span className="text-xs font-semibold text-[#bbb8b1]">Candidate resume <span className="ml-1 text-[#f08b53]">Required</span></span>
+                {file ? <div className="mt-1.5 flex items-center justify-between border border-[#f36b21]/50 bg-[#f36b21]/5 px-3 py-3"><span className="truncate font-mono text-xs text-[#f4a275]">{file.name}</span><button type="button" onClick={() => setFile(null)} aria-label="Remove resume" className="ml-3 text-[#77746e] hover:text-white"><X className="h-4 w-4" /></button></div> : <label className="mt-1.5 flex cursor-pointer items-center justify-center gap-2 border border-dashed border-white/20 bg-white/[.025] px-4 py-3 text-xs text-[#85827c] transition hover:border-[#f36b21] hover:text-[#ef9a69]"><input required type="file" accept=".pdf,.txt,.md" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] || null)} /><FileUp className="h-4 w-4" /> Upload required resume · PDF, TXT, or Markdown</label>}
               </div>
             </div>
 

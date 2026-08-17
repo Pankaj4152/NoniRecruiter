@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     job: session.job,
     currentPhase: session.currentPhase,
     elapsedSeconds: session.elapsedSeconds,
+    targetDurationMinutes: session.targetDurationMinutes,
     turns: session.turns,
     isCompleted: session.isCompleted,
   });

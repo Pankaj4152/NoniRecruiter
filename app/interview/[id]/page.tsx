@@ -2,13 +2,15 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowUp, Loader2, Mic, Square, Volume2 } from 'lucide-react';
+import { ArrowUp, Clock3, Loader2, Mic, Square, Volume2, VolumeX } from 'lucide-react';
 import { InterviewPhase, InterviewTurn } from '@/lib/interview/types';
 
 interface SessionView {
   candidate: { name: string; targetRole: string };
   job: { companyName: string; roleTitle: string };
   currentPhase: InterviewPhase;
+  elapsedSeconds: number;
+  targetDurationMinutes: number;
   turns: InterviewTurn[];
   isCompleted: boolean;
 }
@@ -34,13 +36,18 @@ export default function InterviewPage() {
   const [turns, setTurns] = useState<InterviewTurn[]>([]);
   const [phase, setPhase] = useState<InterviewPhase>('WARMUP');
   const [answer, setAnswer] = useState('');
+  const [elapsed, setElapsed] = useState(0);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [listening, setListening] = useState(false);
   const [speakingTurnId, setSpeakingTurnId] = useState<number | null>(null);
+  const [autoSpeak, setAutoSpeak] = useState(true);
+  const [revealedCharacters, setRevealedCharacters] = useState(0);
   const [error, setError] = useState('');
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const dictationPrefixRef = useRef('');
+  const automaticallySpokenTurnRef = useRef<number | null>(null);
+  const latestInterviewerTurn = [...turns].reverse().find((turn) => turn.speaker === 'interviewer');
 
   useEffect(() => {
     fetch(`/api/agent/session?sessionId=${encodeURIComponent(id)}`)
@@ -50,10 +57,49 @@ export default function InterviewPage() {
         setSession(data);
         setTurns(data.turns || []);
         setPhase(data.currentPhase || 'WARMUP');
+        setElapsed(data.elapsedSeconds || 0);
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : 'Could not load interview.'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!session || session.isCompleted) return;
+    const timer = window.setInterval(() => setElapsed((value) => value + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [session]);
+
+  useEffect(() => {
+    if (!latestInterviewerTurn) return;
+    const turn = latestInterviewerTurn;
+    const text = turn.text;
+    setRevealedCharacters(0);
+
+    if (!autoSpeak || !('speechSynthesis' in window)) {
+      let index = 0;
+      const revealTimer = window.setInterval(() => {
+        index = Math.min(text.length, index + 3);
+        setRevealedCharacters(index);
+        if (index >= text.length) window.clearInterval(revealTimer);
+      }, 18);
+      return () => window.clearInterval(revealTimer);
+    }
+
+    if (automaticallySpokenTurnRef.current === turn.turnId) {
+      setRevealedCharacters(text.length);
+      return;
+    }
+    automaticallySpokenTurnRef.current = turn.turnId;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.onboundary = (event) => setRevealedCharacters(Math.min(text.length, event.charIndex + (event.charLength || 1)));
+    utterance.onend = () => { setRevealedCharacters(text.length); setSpeakingTurnId(null); };
+    utterance.onerror = () => { setRevealedCharacters(text.length); setSpeakingTurnId(null); };
+    setSpeakingTurnId(turn.turnId);
+    window.speechSynthesis.speak(utterance);
+    return () => window.speechSynthesis.cancel();
+  }, [latestInterviewerTurn?.turnId, autoSpeak]);
 
   useEffect(() => {
     return () => {
@@ -70,18 +116,35 @@ export default function InterviewPage() {
     window.speechSynthesis.cancel();
     if (speakingTurnId === turn.turnId) {
       setSpeakingTurnId(null);
+      setRevealedCharacters(turn.text.length);
       return;
     }
     const utterance = new SpeechSynthesisUtterance(turn.text);
     utterance.rate = 1;
-    utterance.onend = () => setSpeakingTurnId(null);
+    setRevealedCharacters(0);
+    utterance.onboundary = (event) => setRevealedCharacters(Math.min(turn.text.length, event.charIndex + (event.charLength || 1)));
+    utterance.onend = () => { setRevealedCharacters(turn.text.length); setSpeakingTurnId(null); };
     utterance.onerror = () => {
+      setRevealedCharacters(turn.text.length);
       setSpeakingTurnId(null);
       setError('The browser could not play this message.');
     };
     setError('');
     setSpeakingTurnId(turn.turnId);
     window.speechSynthesis.speak(utterance);
+  }
+
+  function toggleAutomaticVoice() {
+    setAutoSpeak((enabled) => {
+      const nextEnabled = !enabled;
+      if (nextEnabled) automaticallySpokenTurnRef.current = null;
+      if (!nextEnabled) {
+        window.speechSynthesis?.cancel();
+        setSpeakingTurnId(null);
+        setRevealedCharacters(turns.find((turn) => turn.turnId === speakingTurnId)?.text.length || latestInterviewerTurn?.text.length || 0);
+      }
+      return nextEnabled;
+    });
   }
 
   function toggleMicrophone() {
@@ -173,8 +236,9 @@ export default function InterviewPage() {
   if (loading) return <main className="office-shell grid min-h-[calc(100vh-4rem)] place-items-center"><div className="text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-orange-500" /><p className="mt-3 font-mono text-xs uppercase tracking-wider text-slate-500">Opening interview room</p></div></main>;
   if (!session) return <main className="office-shell grid min-h-[calc(100vh-4rem)] place-items-center px-5 text-center text-sm text-red-300">{error || 'Interview not found.'}</main>;
 
-  const latestInterviewerTurn = [...turns].reverse().find((turn) => turn.speaker === 'interviewer');
   const answeredQuestions = turns.filter((turn) => turn.speaker === 'candidate').length;
+  const remainingSeconds = Math.max(0, session.targetDurationMinutes * 60 - elapsed);
+  const remainingTime = `${Math.floor(remainingSeconds / 60).toString().padStart(2, '0')}:${(remainingSeconds % 60).toString().padStart(2, '0')}`;
 
   return (
     <main className="office-shell h-[calc(100vh-4rem)] min-h-[650px]">
@@ -183,15 +247,21 @@ export default function InterviewPage() {
           <div className="flex items-center gap-2"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /><span className="system-kicker text-[#e3dfd7]">Live interview</span></div>
           <p className="mt-1 text-xs text-[#8f8c85]">{session.candidate.name} · {session.job.roleTitle}</p>
         </div>
-        <button onClick={() => void finishInterview()} disabled={processing} className="terminal-panel px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-wider text-[#c8c4bc] hover:border-[#f36b21] hover:text-[#f08b53] disabled:opacity-50">End session</button>
+        <div className="flex items-stretch gap-2">
+          <div className="terminal-panel flex items-center gap-2 px-4 py-3"><Clock3 className="h-4 w-4 text-[#f08b53]" /><div><span className="system-code block">Remaining</span><span className="font-mono text-sm font-bold tabular-nums text-[#e7e3dc]">{remainingTime}</span></div></div>
+          <button onClick={() => void finishInterview()} disabled={processing} className="terminal-panel px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-wider text-[#c8c4bc] hover:border-[#f36b21] hover:text-[#f08b53] disabled:opacity-50">End session</button>
+        </div>
       </div>
 
       <section className="question-bubble z-10 p-5 sm:p-6">
         <div className="mb-3 flex items-center justify-between gap-4">
           <div><span className="terminal-label">Noni · AI Recruiter</span><span className="ml-3 system-code">Question {answeredQuestions + 1}</span></div>
-          {latestInterviewerTurn && <button type="button" onClick={() => speakMessage(latestInterviewerTurn)} aria-label={speakingTurnId === latestInterviewerTurn.turnId ? 'Stop speaking' : 'Read question aloud'} className="border border-white/15 p-2 text-[#8d8a84] hover:border-[#f36b21] hover:text-[#f08b53]">{speakingTurnId === latestInterviewerTurn.turnId ? <Square className="h-4 w-4 fill-current" /> : <Volume2 className="h-4 w-4" />}</button>}
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={toggleAutomaticVoice} aria-label={autoSpeak ? 'Disable automatic voice' : 'Enable automatic voice'} title={autoSpeak ? 'Automatic voice on' : 'Automatic voice off'} className={`border p-2 ${autoSpeak ? 'border-[#f36b21]/50 text-[#f08b53]' : 'border-white/15 text-[#77746e]'}`}>{autoSpeak ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>
+            {latestInterviewerTurn && <button type="button" onClick={() => speakMessage(latestInterviewerTurn)} aria-label={speakingTurnId === latestInterviewerTurn.turnId ? 'Stop speaking' : 'Replay question'} className="border border-white/15 p-2 text-[#8d8a84] hover:border-[#f36b21] hover:text-[#f08b53]">{speakingTurnId === latestInterviewerTurn.turnId ? <Square className="h-4 w-4 fill-current" /> : <Volume2 className="h-4 w-4" />}</button>}
+          </div>
         </div>
-        <p className="text-sm leading-6 text-[#e7e3dc] sm:text-base sm:leading-7">{processing ? <span className="animate-pulse font-mono text-xs uppercase tracking-wider text-[#f08b53]">Preparing the next question…</span> : latestInterviewerTurn?.text}</p>
+        <p className="text-sm leading-6 text-[#e7e3dc] sm:text-base sm:leading-7">{processing ? <span className="animate-pulse font-mono text-xs uppercase tracking-wider text-[#f08b53]">Preparing the next question…</span> : <>{latestInterviewerTurn?.text.slice(0, revealedCharacters)}{latestInterviewerTurn && revealedCharacters < latestInterviewerTurn.text.length && <span className="ml-0.5 animate-pulse text-[#f36b21]">|</span>}</>}</p>
       </section>
 
       <div className="absolute bottom-5 left-1/2 z-20 w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 sm:bottom-7">

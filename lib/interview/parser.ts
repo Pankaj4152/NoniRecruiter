@@ -39,7 +39,7 @@ export async function loadResumeContent(filePathOrText: string): Promise<string>
 export async function parseCandidateProfile(
   rawResumeText: string,
   candidateName: string = 'Candidate',
-  targetRole: string = 'AI Engineering Intern',
+  targetRole: string = 'Open role',
   options: { useLLM?: boolean } = {}
 ): Promise<CandidateProfile> {
   if (options.useLLM === false) {
@@ -204,9 +204,7 @@ function createCandidateFromFallback(rawResumeText: string, candidateName: strin
   };
 }
 
-/**
- * Local Rule-Based Categorized JSON Extractor (Pankaj's resume specialized fallback)
- */
+/** Local rule-based skill detector used only as a no-hallucination fallback. */
 function createLocalCategorizedJSON(rawText: string, name: string): ParsedResumeJSON {
   const normalized = rawText.replace(/\s+/g, ' ').trim();
   const email = normalized.match(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/)?.[0];
@@ -232,80 +230,5 @@ function createLocalCategorizedJSON(rawText: string, name: string): ParsedResume
     skills,
     achievements: [],
     education: { degree: '', institution: '', year: '' },
-  };
-}
-
-// Kept separate from the generic fallback so older demo data is never returned for a real candidate.
-function createLocalCategorizedJSONLegacy(rawText: string, name: string): ParsedResumeJSON {
-  return {
-    fullName: name,
-    contact: {
-      email: 'pankajgoyal4152@gmail.com',
-      phone: '+91 8094938417',
-      github: 'Github',
-      linkedin: 'Linkedin',
-    },
-    experience: [
-      {
-        company: 'AIPlaneTech Pvt. Ltd.',
-        role: 'AI Engineer Trainee',
-        duration: 'Jun 2025 – Jul 2025',
-        highlights: [
-          'Developed AI Insight Pro (enterprise AI governance platform integrating 7+ data sources)',
-          'Improved PII detection accuracy from 60% to 80% using hybrid LLM and rule-based pipeline',
-          'Built async backend services and REST APIs using Python, FastAPI, and PostgreSQL',
-          'Implemented 2 production AI agents and contributed to 5+ agentic workflows',
-        ],
-      },
-    ],
-    projects: [
-      {
-        title: 'KAIROS – Persistent Engineering Memory Layer for AI-Native Teams',
-        technologies: ['Python', 'FastAPI', 'React', 'TypeScript', 'LiteLLM'],
-        description: 'Multi-channel persistent memory & routing layer',
-        highlights: [
-          '3-tier LiteLLM routing architecture selecting local/cloud models',
-          '3 interaction channels: Telegram, web, experimental voice',
-          'Context integration from PRs, incidents, Jira, Slack, codebases',
-        ],
-      },
-      {
-        title: 'Scratchers – AI Systems From First Principles',
-        technologies: ['Python', 'NumPy', 'PyTorch'],
-        description: 'First-principles implementation of AI systems',
-        highlights: [
-          'Feed-forward neural net (NumPy) achieving 94% MNIST accuracy',
-          'Decoder-only Transformer with multi-head self-attention on Tiny Shakespeare',
-          'Modular RAG components without end-to-end frameworks',
-        ],
-      },
-      {
-        title: 'Issuenix – Digital Credential Platform',
-        technologies: ['FastAPI', 'PostgreSQL', 'React'],
-        description: 'Tamper-resistant digital certificate platform',
-        highlights: [
-          'Bulk certificate generation reducing processing time by 99%',
-          'Public certificate verification with sub-second response times',
-        ],
-      },
-    ],
-    skills: {
-      languages: ['Python', 'C++', 'SQL', 'JavaScript', 'TypeScript'],
-      ai_ml: ['Large Language Models', 'AI Agents', 'Retrieval-Augmented Generation', 'Transformers', 'Deep Learning', 'PyTorch'],
-      frameworks_libraries: ['FastAPI', 'PyTorch', 'NumPy', 'LiteLLM', 'React', 'asyncio'],
-      backend_databases: ['REST APIs', 'Asynchronous Programming', 'PostgreSQL', 'SQLite', 'System Design'],
-      tools_infrastructure: ['Docker', 'Docker Compose', 'GCP', 'Linux', 'Git', 'GitHub', 'Ollama'],
-    },
-    achievements: [
-      'Ranked 29th nationwide in IIT Bombay National Entrepreneurship Challenge 2025',
-      'Advanced to Round 2 of Polaris Fellowship',
-      'Published 6+ technical AI/ML articles with 3,000+ views',
-      'Solved 400+ DSA problems across LeetCode',
-    ],
-    education: {
-      degree: 'Bachelor of Engineering in Computer Science and Engineering',
-      institution: 'MBM University, Jodhpur',
-      year: '2023 – 2027',
-    },
   };
 }

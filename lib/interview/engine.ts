@@ -136,11 +136,13 @@ export class InterviewEngine {
 Parsed resume index (use only when supported by the raw source above):
 - Experience: ${sr.experience.map((e) => `${e.company} (${e.role}): ${e.highlights.join('; ')}`).join('\n  ')}
 - Key Projects: ${sr.projects.map((p) => `${p.title} [Tech: ${p.technologies.join(', ')}]: ${p.highlights.join('; ')}`).join('\n  ')}
-- Categorized Skills:
-  * Languages: ${sr.skills.languages.join(', ')}
-  * AI & ML: ${sr.skills.ai_ml.join(', ')}
-  * Frameworks: ${sr.skills.frameworks_libraries.join(', ')}
-  * Databases & Infra: ${sr.skills.tools_infrastructure.join(', ')}
+- Skills explicitly found in resume: ${[
+        ...sr.skills.languages,
+        ...sr.skills.ai_ml,
+        ...sr.skills.frameworks_libraries,
+        ...sr.skills.backend_databases,
+        ...sr.skills.tools_infrastructure,
+      ].join(', ')}
 - Achievements: ${sr.achievements.join('; ')}
 - Education: ${sr.education.degree} at ${sr.education.institution} (${sr.education.year})
 `;
@@ -161,8 +163,6 @@ ${customDirectives}
 === CANDIDATE PROFILE & STRUCTURED RESUME JSON ===
 Name: ${session.candidate.name}
 Target Role: ${session.candidate.targetRole}
-Assessed Experience Level: ${session.candidate.experienceLevel}
-
 ${structuredResumeText}
 
 === JOB DESCRIPTION & REQUIREMENTS ===
