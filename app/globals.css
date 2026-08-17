@@ -23,7 +23,7 @@ button, input, textarea, select { font: inherit; }
   min-height: calc(100vh - 64px);
   overflow: hidden;
   background-color: #0a0a09;
-  background-image: url('/assets/recruitment-room.png');
+  background-image: url('/assets/recruitment-room-v2.png');
   background-position: center;
   background-size: cover;
 }
@@ -32,7 +32,7 @@ button, input, textarea, select { font: inherit; }
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(90deg, rgba(5,5,5,.96) 0%, rgba(5,5,5,.73) 43%, rgba(5,5,5,.55) 100%), linear-gradient(180deg, rgba(0,0,0,.1), rgba(0,0,0,.5));
+  background: linear-gradient(180deg, rgba(3,3,3,.24), rgba(3,3,3,.54));
 }
 .office-shell::after {
   content: "";
@@ -63,6 +63,11 @@ button, input, textarea, select { font: inherit; }
 .terminal-button:hover:not(:disabled) { background: #ff7c35; transform: translateY(-1px); }
 .terminal-button:active:not(:disabled) { transform: translateY(0); }
 
+.setup-overlay { background: rgba(9,9,8,.91); border: 1px solid rgba(255,255,255,.18); box-shadow: 0 32px 100px rgba(0,0,0,.66); backdrop-filter: blur(15px); }
+.question-bubble { position: absolute; left: 34%; top: 7%; width: min(560px, 43vw); transform: translateX(-50%); background: rgba(8,8,7,.95); border: 1px solid rgba(255,255,255,.22); box-shadow: 0 24px 70px rgba(0,0,0,.58); backdrop-filter: blur(12px); }
+.question-bubble::after { content: ""; position: absolute; left: 47%; bottom: -11px; width: 20px; height: 20px; transform: rotate(45deg); border-right: 1px solid rgba(255,255,255,.22); border-bottom: 1px solid rgba(255,255,255,.22); background: #080807; }
+.answer-dock { background: rgba(8,8,7,.96); border: 1px solid rgba(255,255,255,.2); box-shadow: 0 20px 70px rgba(0,0,0,.6); backdrop-filter: blur(14px); }
+
 .glass-panel, .surface-card, .glass-panel-glow { background: rgba(15,15,14,.94); border: 1px solid var(--border); box-shadow: 0 18px 55px rgba(0,0,0,.34); }
 .eyebrow { display: inline-flex; color: #f39a68; font-size: .62rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
 
@@ -72,6 +77,7 @@ button, input, textarea, select { font: inherit; }
 
 @media (max-width: 900px) {
   .office-shell { background-position: 42% center; }
-  .office-shell::before { background: rgba(5,5,5,.78); }
+  .office-shell::before { background: rgba(5,5,5,.5); }
+  .question-bubble { left: 50%; top: 5%; width: calc(100% - 2rem); }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
