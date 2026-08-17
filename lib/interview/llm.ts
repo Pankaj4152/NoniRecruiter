@@ -205,7 +205,7 @@ function generateMockResponse(messages: LLMMessage[]): string {
   // Initial Turn 0
   if (assistantTurns === 0) {
     return JSON.stringify({
-      interviewerResponse: `Hello ${candidateName}! Welcome to your technical interview. To start, could you introduce yourself and highlight one project most relevant to this role?`,
+      interviewerResponse: `Hello ${candidateName}! Welcome to your interview. To start, could you introduce yourself and describe the experience most relevant to this role?`,
       nextPhase: "WARMUP",
       shouldProbeDeeper: false,
       shouldEndInterview: false,
@@ -216,7 +216,7 @@ function generateMockResponse(messages: LLMMessage[]): string {
   // Turn 1 Response (Candidate introduction or project highlight)
   if (assistantTurns === 1) {
     return JSON.stringify({
-      interviewerResponse: "Thanks for that overview. Pick the most technically difficult part of that project: what architecture did you choose, what alternatives did you reject, and why?",
+      interviewerResponse: "Thanks for that overview. Choose the most difficult part of that work: what approach did you take, what alternatives did you consider, and why?",
       nextPhase: "TECHNICAL_PROBING",
       shouldProbeDeeper: true,
       shouldEndInterview: false,
@@ -228,8 +228,8 @@ function generateMockResponse(messages: LLMMessage[]): string {
   if (assistantTurns === 2) {
     return JSON.stringify({
       interviewerResponse: isBrief
-        ? "I’d like to go one level deeper. What failure modes did you observe, and how did the system detect, recover from, and measure them?"
-        : "Building on those trade-offs, how did you measure latency and reliability, and what would you redesign at ten times the traffic?",
+        ? "I would like to go one level deeper. What went wrong in practice, how did you respond, and how did you measure the result?"
+        : "Building on those trade-offs, how did you validate the outcome, and what would you change if the scale increased significantly?",
       nextPhase: "TECHNICAL_PROBING",
       shouldProbeDeeper: isBrief,
       shouldEndInterview: false,
@@ -240,7 +240,7 @@ function generateMockResponse(messages: LLMMessage[]): string {
   // Turn 3 Response (Behavioral / STAR)
   if (assistantTurns >= 3) {
     return JSON.stringify({
-      interviewerResponse: "Thank you for sharing those insights! That wraps up our technical interview session today. Our team will review your responses and generate your evidence report card.",
+      interviewerResponse: "Thank you for sharing those insights. That wraps up our interview today. The team can now review your evidence report.",
       nextPhase: "CLOSING",
       shouldProbeDeeper: false,
       shouldEndInterview: true,
@@ -250,7 +250,7 @@ function generateMockResponse(messages: LLMMessage[]): string {
   }
 
   return JSON.stringify({
-    interviewerResponse: `Thanks for sharing that perspective! Building on what you said, can you describe a challenging technical situation you encountered and how you resolved it?`,
+    interviewerResponse: `Thanks for sharing that perspective. Building on what you said, can you describe a challenging situation you encountered and how you resolved it?`,
     nextPhase: "TECHNICAL_PROBING",
     shouldProbeDeeper: false,
     shouldEndInterview: false,

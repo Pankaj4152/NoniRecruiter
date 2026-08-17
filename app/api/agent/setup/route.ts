@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
     const fullJobDescription = ((formData.get('jobDescription') as string) || '').trim();
     const requestedDuration = parseInt((formData.get('duration') as string) || '10', 10);
     const targetDurationMinutes = [5, 10, 15].includes(requestedDuration) ? requestedDuration : 10;
-    const customInstructions = (formData.get('customInstructions') as string) || 'Focus on implementation depth, architecture trade-offs, failure handling, and measurable outcomes.';
+    const customInstructions = ((formData.get('customInstructions') as string) || '').trim();
 
-    let rawResumeText = 'Software engineering candidate with experience in full-stack development, backend systems, and LLM orchestration.';
+    let rawResumeText = 'No resume was provided. Use only the candidate answers and job description as evidence.';
     const resumeFile = formData.get('resumeFile') as File | null;
     const resumeTextRaw = formData.get('resumeText') as string | null;
     const hasProvidedResume = Boolean((resumeFile && resumeFile.name) || (resumeTextRaw && resumeTextRaw.trim()));
@@ -64,14 +64,8 @@ export async function POST(req: NextRequest) {
     const jobDescription: JobDescription = {
       roleTitle: role,
       companyName: company,
-      keyRequirements: [
-        'Experience building AI agents & web workflows',
-        'Knowledge of TypeScript, Node.js, and modern application architecture',
-        'Understanding of LLM orchestration and persistent memory architectures',
-      ],
-      responsibilities: [
-        'Collaborate with human team members inside persistent virtual office spaces',
-      ],
+      keyRequirements: extractRequirements(fullJobDescription, role),
+      responsibilities: [],
       fullText: fullJobDescription || `Interview for the ${role} role at ${company}.`,
       customInterviewerInstructions: customInstructions,
     };
@@ -104,4 +98,13 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ error: 'Failed to initialize candidate session.' }, { status: 500 });
   }
+}
+
+function extractRequirements(jobDescription: string, role: string): string[] {
+  const requirements = jobDescription
+    .split(/\r?\n|(?<=[.!?])\s+/)
+    .map((line) => line.replace(/^[\s•*\-–—\d.)]+/, '').trim())
+    .filter((line) => line.length >= 12)
+    .slice(0, 10);
+  return requirements.length ? requirements : [`Relevant experience for the ${role} role`];
 }

@@ -46,7 +46,12 @@ export async function parseCandidateProfile(
     return createCandidateFromFallback(rawResumeText, candidateName, targetRole);
   }
 
-  const prompt = `Analyze the following complete resume text and parse it strictly into a structured JSON object.
+  const prompt = `Extract only facts explicitly present in the resume text into structured JSON.
+
+GROUNDING RULES:
+- Never infer, assume, complete, or invent a skill, employer, project, achievement, technology, degree, date, or contact detail.
+- Empty or absent categories must be returned as empty arrays or empty strings.
+- The schema labels below are field names, not example facts to copy.
 
 === RESUME TEXT ===
 ${rawResumeText}
@@ -57,45 +62,45 @@ Return strictly JSON matching this structure:
   "contact": { "email": "", "phone": "", "github": "", "linkedin": "" },
   "experience": [
     {
-      "company": "Company Name",
-      "role": "Role Title",
-      "duration": "Dates",
-      "highlights": ["bullet point 1", "bullet point 2"]
+      "company": "",
+      "role": "",
+      "duration": "",
+      "highlights": []
     }
   ],
   "projects": [
     {
-      "title": "Project Name",
-      "technologies": ["Tech1", "Tech2"],
-      "description": "Short description",
-      "highlights": ["achievement or detail 1"]
+      "title": "",
+      "technologies": [],
+      "description": "",
+      "highlights": []
     }
   ],
   "skills": {
-    "languages": ["Python", "C++", "SQL", "JavaScript", "TypeScript"],
-    "ai_ml": ["LLMs", "AI Agents", "RAG", "Transformers", "PyTorch"],
-    "frameworks_libraries": ["FastAPI", "React", "LiteLLM", "NumPy"],
-    "backend_databases": ["PostgreSQL", "SQLite", "REST APIs", "System Design"],
-    "tools_infrastructure": ["Docker", "GCP", "Git", "Linux", "Ollama"]
+    "languages": [],
+    "ai_ml": [],
+    "frameworks_libraries": [],
+    "backend_databases": [],
+    "tools_infrastructure": []
   },
-  "achievements": ["Achievement 1", "Achievement 2"],
+  "achievements": [],
   "education": {
-    "degree": "Degree Title",
-    "institution": "University Name",
-    "year": "Graduation Years"
+    "degree": "",
+    "institution": "",
+    "year": ""
   }
 }`;
 
   try {
     const response = await generateLLMCompletion(
       [
-        { role: 'system', content: 'You are an expert AI resume parser. Extract full structured JSON details.' },
+        { role: 'system', content: 'You are a source-grounded resume extractor. Output only facts directly supported by the supplied text. Never infer missing facts.' },
         { role: 'user', content: prompt }
       ],
       { jsonMode: true, temperature: 0.2 }
     );
 
-    const structuredJSON: ParsedResumeJSON = JSON.parse(response);
+    const structuredJSON = groundParsedResume(JSON.parse(response) as ParsedResumeJSON, rawResumeText, candidateName);
 
     const allSkills = [
       ...(structuredJSON.skills.languages || []),
@@ -105,16 +110,12 @@ Return strictly JSON matching this structure:
       ...(structuredJSON.skills.tools_infrastructure || []),
     ];
 
-    const projectSummary = structuredJSON.projects
-      ? structuredJSON.projects.map((p) => `${p.title} (${p.technologies.join(', ')})`).join('; ')
-      : '';
-
     return {
-      name: structuredJSON.fullName || candidateName,
+      name: candidateName,
       targetRole,
       experienceLevel: 'Junior',
       skills: Array.from(new Set(allSkills)),
-      resumeText: `Candidate ${candidateName} has experience at ${structuredJSON.experience?.[0]?.company || 'AIPlaneTech'}. Built projects: ${projectSummary}. Education: ${structuredJSON.education?.institution || 'MBM University'}.`,
+      resumeText: rawResumeText.replace(/\s+/g, ' ').trim(),
       structuredResume: structuredJSON,
     };
   } catch (error) {
@@ -124,6 +125,62 @@ Return strictly JSON matching this structure:
   }
 
   return createCandidateFromFallback(rawResumeText, candidateName, targetRole);
+}
+
+export function groundParsedResume(parsed: ParsedResumeJSON, rawText: string, candidateName: string): ParsedResumeJSON {
+  const normalizedSource = normalizeEvidence(rawText);
+  const supported = (value?: string) => Boolean(value && normalizeEvidence(value).length > 1 && normalizedSource.includes(normalizeEvidence(value)));
+  const substantiallySupported = (value?: string) => {
+    if (!value) return false;
+    const words = normalizeEvidence(value).split(' ').filter((word) => word.length > 3);
+    if (!words.length) return supported(value);
+    return words.filter((word) => normalizedSource.includes(word)).length / words.length >= 0.65;
+  };
+  const list = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+  const groundedSkills = (skills: Partial<ParsedResumeJSON['skills']> = {}) => ({
+    languages: list(skills.languages).filter(supported),
+    ai_ml: list(skills.ai_ml).filter(supported),
+    frameworks_libraries: list(skills.frameworks_libraries).filter(supported),
+    backend_databases: list(skills.backend_databases).filter(supported),
+    tools_infrastructure: list(skills.tools_infrastructure).filter(supported),
+  });
+
+  return {
+    fullName: candidateName,
+    contact: {
+      email: supported(parsed.contact?.email) ? parsed.contact.email : undefined,
+      phone: supported(parsed.contact?.phone) ? parsed.contact.phone : undefined,
+      github: supported(parsed.contact?.github) ? parsed.contact.github : undefined,
+      linkedin: supported(parsed.contact?.linkedin) ? parsed.contact.linkedin : undefined,
+    },
+    experience: (Array.isArray(parsed.experience) ? parsed.experience : [])
+      .filter((item) => supported(item.company) || supported(item.role))
+      .map((item) => ({
+        company: supported(item.company) ? item.company : '',
+        role: supported(item.role) ? item.role : '',
+        duration: supported(item.duration) ? item.duration : '',
+        highlights: list(item.highlights).filter(substantiallySupported),
+      })),
+    projects: (Array.isArray(parsed.projects) ? parsed.projects : [])
+      .filter((item) => supported(item.title))
+      .map((item) => ({
+        title: item.title,
+        technologies: list(item.technologies).filter(supported),
+        description: substantiallySupported(item.description) ? item.description : '',
+        highlights: list(item.highlights).filter(substantiallySupported),
+      })),
+    skills: groundedSkills(parsed.skills),
+    achievements: list(parsed.achievements).filter(substantiallySupported),
+    education: {
+      degree: supported(parsed.education?.degree) ? parsed.education.degree : '',
+      institution: supported(parsed.education?.institution) ? parsed.education.institution : '',
+      year: supported(parsed.education?.year) ? parsed.education.year : '',
+    },
+  };
+}
+
+function normalizeEvidence(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9+#.]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function createCandidateFromFallback(rawResumeText: string, candidateName: string, targetRole: string): CandidateProfile {

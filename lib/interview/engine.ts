@@ -59,7 +59,7 @@ export class InterviewEngine {
     const candidatePhases = new Set(candidateTurns.map((turn) => turn.phase));
     const coverage = [
       { phase: 'WARMUP' as InterviewPhase, label: 'Background and role fit' },
-      { phase: 'TECHNICAL_PROBING' as InterviewPhase, label: 'Technical depth and problem solving' },
+      { phase: 'TECHNICAL_PROBING' as InterviewPhase, label: 'Role-specific depth and problem solving' },
       { phase: 'BEHAVIORAL' as InterviewPhase, label: 'Behavioral evidence and communication' },
     ];
     // The first answer supplies background evidence even when the model advances the phase early.
@@ -128,11 +128,12 @@ export class InterviewEngine {
     }
 
     // Format structured JSON resume context
-    let structuredResumeText = session.candidate.resumeText;
+    let structuredResumeText = `Raw resume source (authoritative):\n${session.candidate.resumeText}`;
     if (session.candidate.structuredResume) {
       const sr = session.candidate.structuredResume;
-      structuredResumeText = `
-Category Breakdown:
+      structuredResumeText += `
+
+Parsed resume index (use only when supported by the raw source above):
 - Experience: ${sr.experience.map((e) => `${e.company} (${e.role}): ${e.highlights.join('; ')}`).join('\n  ')}
 - Key Projects: ${sr.projects.map((p) => `${p.title} [Tech: ${p.technologies.join(', ')}]: ${p.highlights.join('; ')}`).join('\n  ')}
 - Categorized Skills:
@@ -154,8 +155,8 @@ Category Breakdown:
       ? `\n=== FULL JOB DESCRIPTION ===\n${session.job.fullText}\n`
       : '';
 
-    const systemPrompt = `You are NoniRecruiter, a Senior Lead AI Engineer and Technical Interviewer at ${session.job.companyName}.
-Your objective is to conduct a natural, realistic, and highly engaging technical interview for the role of ${session.job.roleTitle}.
+    const systemPrompt = `You are NoniRecruiter, a structured interviewer representing ${session.job.companyName}.
+Your objective is to conduct a natural, realistic, and highly engaging role-specific interview for the position of ${session.job.roleTitle}.
 ${customDirectives}
 === CANDIDATE PROFILE & STRUCTURED RESUME JSON ===
 Name: ${session.candidate.name}
@@ -182,13 +183,20 @@ Total Turns Completed: ${session.turnNumber}
 Current Phase: ${session.currentPhase}
 
 === REALISTIC CONVERSATIONAL INTERVIEW FLOW RULES ===
+0. SOURCE GROUNDING — HIGHEST PRIORITY:
+   - The raw resume, full job description, custom directives, and candidate answers are the only factual sources.
+   - Never claim the resume or job description mentions a skill, project, employer, technology, or domain unless those exact facts are present in the supplied source.
+   - Never introduce AI, LLMs, agents, LiveKit, WebRTC, TypeScript, or any other technology unless it appears in the supplied source or the candidate introduces it.
+   - If no resume was supplied, say nothing about seeing or reviewing resume experience.
+   - The parsed resume index may omit information. If it conflicts with the raw resume, trust the raw resume.
+
 1. ACTIVE LISTENING & CONVERSATIONAL CONTINUITY:
    - NEVER ask generic, disconnected questions. ALWAYS actively listen to the candidate's last answer.
    - Start your response by acknowledging a specific technical decision or concept from the candidate's last answer.
-   - Connect questions organically to their real projects (e.g. KAIROS, LiteLLM routing, Scratchers Transformer, AI Insight Pro).
+   - Connect questions only to projects, responsibilities, and skills explicitly present in the supplied source.
 
 2. ADAPTIVE BRANCHING & PROBING:
-   - Deep Technical Probing: Ask about architecture trade-offs, async concurrency, state handling, latency, or model fallbacks based on their previous response.
+   - Deep Role Probing: Ask about decisions, trade-offs, difficult situations, scale, validation, or measurable outcomes only when relevant to the supplied role and the candidate's previous response.
    - Real-World Scenario Challenge: Present a realistic system design challenge related to the supplied role and job description.
    - If candidate's response is surface-level or brief, set "shouldProbeDeeper": true and ask a targeted follow-up probe.
 
@@ -250,7 +258,7 @@ Return strictly JSON with this EXACT structure:
     const allowedPhases: InterviewPhase[] = ['WARMUP', 'TECHNICAL_PROBING', 'BEHAVIORAL', 'CLOSING', 'COMPLETED'];
     if (!result.interviewerResponse || !allowedPhases.includes(result.nextPhase)) {
       result = {
-        interviewerResponse: result.interviewerResponse || 'Thank you. Could you expand on the technical trade-offs you considered?',
+        interviewerResponse: result.interviewerResponse || 'Thank you. Could you expand on the choices you considered and why you selected that approach?',
         nextPhase: session.currentPhase,
         shouldProbeDeeper: true,
         shouldEndInterview: false,
@@ -319,8 +327,8 @@ Return strictly JSON with this EXACT structure:
 
   private static getCoverageQuestion(timeBudget: InterviewTimeBudget, session: InterviewSession): string {
     const nextArea = timeBudget.remainingAreas[0];
-    if (nextArea === 'Technical depth and problem solving') {
-      return 'Let us use the remaining time for technical depth: describe one important architecture decision, the alternatives you considered, and the measurable result.';
+    if (nextArea === 'Role-specific depth and problem solving') {
+      return `Let us use the remaining time for role-specific depth: describe one important decision relevant to the ${session.job.roleTitle} role, the alternatives you considered, and the measurable result.`;
     }
     if (nextArea === 'Behavioral evidence and communication') {
       return 'Before we close, describe a difficult collaboration or delivery challenge using the situation, your actions, and the measurable result.';
@@ -330,7 +338,7 @@ Return strictly JSON with this EXACT structure:
 
   private static getCoveragePhase(timeBudget: InterviewTimeBudget, session: InterviewSession): InterviewPhase {
     const nextArea = timeBudget.remainingAreas[0];
-    const desired: InterviewPhase = nextArea === 'Technical depth and problem solving'
+    const desired: InterviewPhase = nextArea === 'Role-specific depth and problem solving'
       ? 'TECHNICAL_PROBING'
       : nextArea === 'Behavioral evidence and communication'
         ? 'BEHAVIORAL'
@@ -341,10 +349,10 @@ Return strictly JSON with this EXACT structure:
 
   private static getDistinctQuestion(timeBudget: InterviewTimeBudget, session: InterviewSession): string {
     const deepQuestions = [
-      'Choose one system you built: what failed in practice, how did you diagnose it, and what did you change?',
-      'Describe the most important architecture trade-off in one of your projects and the evidence that supported your choice.',
-      'If the system you described had ten times the traffic tomorrow, where would it fail first and how would you redesign it?',
-      'Tell me about a technical decision you would make differently today and why.',
+      'Choose one relevant piece of work: what went wrong in practice, how did you diagnose it, and what did you change?',
+      'Describe the most important trade-off in one of your projects and the evidence that supported your choice.',
+      'If the demand for the work you described increased tenfold, what would become difficult first and how would you adapt?',
+      'Tell me about a professional decision you would make differently today and why.',
     ];
     const highLevelQuestions = [
       'What is the clearest measurable outcome from your work, and what was your personal contribution?',
