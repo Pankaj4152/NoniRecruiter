@@ -22,6 +22,9 @@ export async function POST(req: NextRequest) {
     if (session.isCompleted) {
       return NextResponse.json({ error: 'Interview is already complete.' }, { status: 409 });
     }
+    if (!session.candidateStarted) {
+      return NextResponse.json({ error: 'The candidate has not started this interview yet.' }, { status: 409 });
+    }
 
     console.info('[interview-turn]', { requestId, stage: 'processing', sessionId, turnNumber: session.turnNumber + 1, answerCharacters: answer.length });
     const turnResult = await InterviewEngine.processTurn(session, answer);

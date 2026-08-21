@@ -27,6 +27,8 @@ export class InterviewEngine {
       targetDurationMinutes,
       startTime: new Date().toISOString(),
       elapsedSeconds: 0,
+      candidateStarted: false,
+      invitationCreatedAt: new Date().toISOString(),
       turns: [],
       isCompleted: false,
     };

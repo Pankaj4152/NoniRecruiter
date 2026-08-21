@@ -14,12 +14,16 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     sessionId: session.sessionId,
-    candidate: session.candidate,
-    job: session.job,
+    candidate: { name: session.candidate.name, targetRole: session.candidate.targetRole },
+    job: { companyName: session.job.companyName, roleTitle: session.job.roleTitle },
     currentPhase: session.currentPhase,
     elapsedSeconds: session.elapsedSeconds,
     targetDurationMinutes: session.targetDurationMinutes,
     turns: session.turns,
     isCompleted: session.isCompleted,
+    candidateStarted: session.candidateStarted,
+    status: session.isCompleted ? 'COMPLETED' : session.candidateStarted ? 'IN_PROGRESS' : 'NOT_STARTED',
+    resumeReceived: Boolean(session.candidate.resumeText.trim()),
+    topics: ['Relevant experience', 'Role-specific problem solving', 'Communication', 'Situational examples'],
   });
 }

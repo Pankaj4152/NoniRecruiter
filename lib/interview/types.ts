@@ -91,6 +91,8 @@ export interface InterviewSession {
   targetDurationMinutes: number; // e.g. 10 - 15 mins
   startTime: string;            // ISO timestamp
   elapsedSeconds: number;       // Tracks real elapsed time
+  candidateStarted: boolean;
+  invitationCreatedAt: string;
   turns: InterviewTurn[];
   isCompleted: boolean;
   endTime?: string;

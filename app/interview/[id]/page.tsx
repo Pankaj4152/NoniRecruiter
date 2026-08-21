@@ -11,6 +11,7 @@ interface SessionView {
   currentPhase: InterviewPhase;
   elapsedSeconds: number;
   targetDurationMinutes: number;
+  candidateStarted: boolean;
   turns: InterviewTurn[];
   isCompleted: boolean;
 }
@@ -54,6 +55,7 @@ export default function InterviewPage() {
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Interview session not found.');
+        if (!data.candidateStarted) { router.replace(`/invite/${id}`); return; }
         setSession(data);
         setTurns(data.turns || []);
         setPhase(data.currentPhase || 'WARMUP');
@@ -61,7 +63,7 @@ export default function InterviewPage() {
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : 'Could not load interview.'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, router]);
 
   useEffect(() => {
     if (!session || session.isCompleted) return;
@@ -199,7 +201,7 @@ export default function InterviewPage() {
     try {
       const response = await fetch('/api/agent/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: id }) });
       if (!response.ok) throw new Error('Could not generate the report.');
-      router.push(`/report/${id}`);
+      router.push(`/interview/${id}/complete`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not finish interview.');
       setProcessing(false);
