@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Check, Clipboard, ExternalLink, Link2, Loader2, ShieldCheck } from 'lucide-react';
+import { Check, Clipboard, Clock3, ExternalLink, FileCheck2, Link2, Loader2, ShieldCheck } from 'lucide-react';
 
 interface InviteSummary { candidate: { name: string }; job: { companyName: string; roleTitle: string }; targetDurationMinutes: number; status: string }
 
@@ -14,7 +14,13 @@ export default function InvitationReadyPage() {
   const [error, setError] = useState('');
   const invitePath = `/invite/${id}`;
 
-  useEffect(() => { fetch(`/api/agent/session?sessionId=${encodeURIComponent(id)}`).then(async (response) => { const data = await response.json(); if (!response.ok) throw new Error(data.error); setSummary(data); }).catch((caught) => setError(caught instanceof Error ? caught.message : 'Could not load invitation.')); }, [id]);
+  useEffect(() => {
+    let active = true;
+    const loadStatus = () => fetch(`/api/agent/session?sessionId=${encodeURIComponent(id)}`).then(async (response) => { const data = await response.json(); if (!response.ok) throw new Error(data.error); if (active) setSummary(data); }).catch((caught) => { if (active) setError(caught instanceof Error ? caught.message : 'Could not load invitation.'); });
+    void loadStatus();
+    const timer = window.setInterval(() => void loadStatus(), 5000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [id]);
 
   async function copyInvite() {
     await navigator.clipboard.writeText(`${window.location.origin}${invitePath}`);
@@ -27,7 +33,7 @@ export default function InvitationReadyPage() {
       <div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center bg-emerald-400/10 text-emerald-300"><Check className="h-5 w-5" /></span><div><p className="system-kicker text-emerald-300">Interview ready</p><h1 className="mt-1 text-2xl font-black uppercase text-white">Candidate invitation created</h1></div></div>
       <div className="mt-7 grid gap-3 sm:grid-cols-2"><Info label="Candidate" value={summary.candidate.name} /><Info label="Role" value={summary.job.roleTitle} /><Info label="Company" value={summary.job.companyName} /><Info label="Duration" value={`${summary.targetDurationMinutes} minutes`} /></div>
       <div className="mt-6 border border-[#f36b21]/30 bg-black/35 p-4"><div className="flex items-center gap-2"><Link2 className="h-4 w-4 text-[#f08b53]" /><span className="system-kicker">Candidate link</span></div><p className="mt-3 truncate font-mono text-xs text-[#aaa69e]">{typeof window !== 'undefined' ? window.location.origin : ''}{invitePath}</p><div className="mt-4 grid gap-2 sm:grid-cols-2"><button onClick={copyInvite} className="terminal-button flex items-center justify-center gap-2 px-4 py-3">{copied ? <Check className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />}{copied ? 'Copied' : 'Copy invite link'}</button><Link href={invitePath} target="_blank" className="flex items-center justify-center gap-2 border border-white/15 px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-wider text-[#cbc7bf] hover:border-[#f36b21]"><ExternalLink className="h-4 w-4" /> Candidate preview</Link></div></div>
-      <div className="mt-3 text-center"><Link href={`/report/${id}`} className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8d8981] hover:text-[#f08b53]">Open recruiter report →</Link></div>
+      <div className={`mt-4 flex items-center justify-between gap-4 border p-4 ${summary.status === 'COMPLETED' ? 'border-emerald-400/30 bg-emerald-400/[.06]' : 'border-white/10 bg-white/[.025]'}`}><div className="flex items-center gap-3">{summary.status === 'COMPLETED' ? <FileCheck2 className="h-5 w-5 text-emerald-300" /> : <Clock3 className="h-5 w-5 text-[#f08b53]" />}<div><p className="system-code">Recruiter report</p><p className="mt-1 text-xs font-bold text-[#d6d2ca]">{summary.status === 'COMPLETED' ? 'Report ready' : summary.status === 'IN_PROGRESS' ? 'Interview in progress' : 'Waiting for candidate'}</p></div></div>{summary.status === 'COMPLETED' ? <Link href={`/report/${id}`} className="terminal-button px-4 py-3">View report</Link> : <span className="font-mono text-[9px] uppercase tracking-wider text-[#6f6b64]">Available after completion</span>}</div>
       <p className="mt-5 flex items-start gap-2 text-[10px] leading-5 text-[#77736c]"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" /> Prototype invitations use temporary in-memory storage and may expire after a server restart. Durable invitations and recruiter authentication arrive in the database phase.</p>
     </section>}
   </main>;

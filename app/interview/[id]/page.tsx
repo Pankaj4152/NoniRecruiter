@@ -199,8 +199,14 @@ export default function InterviewPage() {
     setProcessing(true);
     setError('');
     try {
+      if (!session?.isCompleted) {
+        const finishResponse = await fetch('/api/agent/finish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: id }) });
+        const finishData = await finishResponse.json();
+        if (!finishResponse.ok) throw new Error(finishData.error || 'Could not end the interview.');
+      }
       const response = await fetch('/api/agent/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: id }) });
-      if (!response.ok) throw new Error('Could not generate the report.');
+      const reportData = await response.json();
+      if (!response.ok) throw new Error(reportData.error || 'Could not generate the report.');
       router.push(`/interview/${id}/complete`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not finish interview.');

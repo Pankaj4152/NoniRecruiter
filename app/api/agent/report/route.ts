@@ -13,6 +13,12 @@ export async function POST(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'Session not found.' }, { status: 404 });
     }
+    if (!session.isCompleted) {
+      return NextResponse.json({ error: 'The report will be available after the interview is completed.' }, { status: 409 });
+    }
+    if (!session.turns.some((turn) => turn.speaker === 'candidate' && turn.text.trim())) {
+      return NextResponse.json({ error: 'A report cannot be generated because no candidate answers were submitted.' }, { status: 422 });
+    }
 
     let reportData = interviewReports.get(sessionId);
     let reportFilePath: string | undefined;
