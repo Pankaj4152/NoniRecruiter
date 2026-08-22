@@ -93,6 +93,8 @@ export interface InterviewSession {
   elapsedSeconds: number;       // Tracks real elapsed time
   candidateStarted: boolean;
   invitationCreatedAt: string;
+  isDemo?: boolean;
+  demoLabel?: string;
   turns: InterviewTurn[];
   isCompleted: boolean;
   endTime?: string;

@@ -25,5 +25,7 @@ export async function GET(req: NextRequest) {
     status: session.isCompleted ? 'COMPLETED' : session.candidateStarted ? 'IN_PROGRESS' : 'NOT_STARTED',
     resumeReceived: Boolean(session.candidate.resumeText.trim()),
     topics: ['Relevant experience', 'Role-specific problem solving', 'Communication', 'Situational examples'],
+    isDemo: Boolean(session.isDemo),
+    demoLabel: session.demoLabel,
   });
 }
