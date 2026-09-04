@@ -47,6 +47,18 @@ export interface ParsedResumeJSON {
   };
 }
 
+export interface GithubRepoSummary {
+  repoName: string;
+  owner: string;
+  repoUrl: string;
+  description?: string;
+  primaryLanguage?: string;
+  languages: string[];
+  keyFiles: string[];
+  topics: string[];
+  summaryText: string;
+}
+
 export interface CandidateProfile {
   name: string;
   targetRole: string;
@@ -54,6 +66,9 @@ export interface CandidateProfile {
   skills: string[];
   resumeText: string;
   structuredResume?: ParsedResumeJSON;
+  enableGithubGrounding?: boolean;
+  githubRepoUrl?: string;
+  githubSummary?: GithubRepoSummary;
 }
 
 export interface JobDescription {
@@ -63,6 +78,8 @@ export interface JobDescription {
   responsibilities: string[];
   fullText?: string;                          // Full Job Description text
   customInterviewerInstructions?: string;   // Custom directives for the AI interviewer persona
+  enableGithubGrounding?: boolean;
+  githubRepoUrl?: string;
 }
 
 export interface InterviewTurn {

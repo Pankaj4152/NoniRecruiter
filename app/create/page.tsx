@@ -10,7 +10,8 @@ export default function CreateInterviewPage() {
   const [preparationMessage, setPreparationMessage] = useState('Preparing interview…');
   const [error, setError] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [form, setForm] = useState({ name: '', role: '', company: '', duration: '10', jobDescription: '', customInstructions: '' });
+  const [enableGithubGrounding, setEnableGithubGrounding] = useState(false);
+  const [form, setForm] = useState({ name: '', role: '', company: '', duration: '10', jobDescription: '', customInstructions: '', githubRepoUrl: '' });
   const update = (field: keyof typeof form, value: string) => setForm((current) => ({ ...current, [field]: value }));
 
   async function handleSubmit(event: React.FormEvent) {
@@ -23,7 +24,10 @@ export default function CreateInterviewPage() {
       window.setTimeout(() => setPreparationMessage('The AI is taking a little longer…'), 10000),
     ];
     try {
-      const body = new FormData(); Object.entries(form).forEach(([key, value]) => body.append(key, value)); if (file) body.append('resumeFile', file);
+      const body = new FormData();
+      Object.entries(form).forEach(([key, value]) => body.append(key, value));
+      body.append('enableGithubGrounding', String(enableGithubGrounding));
+      if (file) body.append('resumeFile', file);
       const response = await fetch('/api/agent/setup', { method: 'POST', body }); const data = await response.json();
       if (!response.ok || !data.sessionId) throw new Error(data.error || 'Could not create the interview.');
       timers.forEach((timer) => window.clearTimeout(timer)); router.push(`/create/ready/${data.sessionId}`);
@@ -62,6 +66,20 @@ export default function CreateInterviewPage() {
               <div>
                 <span className="text-xs font-semibold text-[#bbb8b1]">Candidate resume <span className="ml-1 text-[#f08b53]">Required</span></span>
                 {file ? <div className="mt-1.5 flex items-center justify-between border border-[#f36b21]/50 bg-[#f36b21]/5 px-3 py-3"><span className="truncate font-mono text-xs text-[#f4a275]">{file.name}</span><button type="button" onClick={() => setFile(null)} aria-label="Remove resume" className="ml-3 text-[#77746e] hover:text-white"><X className="h-4 w-4" /></button></div> : <label className="mt-1.5 flex cursor-pointer items-center justify-center gap-2 border border-dashed border-white/20 bg-white/[.025] px-4 py-3 text-xs text-[#85827c] transition hover:border-[#f36b21] hover:text-[#ef9a69]"><input required type="file" accept=".pdf,.txt,.md" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] || null)} /><FileUp className="h-4 w-4" /> Upload required resume · PDF, TXT, or Markdown</label>}
+              </div>
+
+              <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3.5 space-y-3">
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold uppercase tracking-wider text-[#e2ded6]">
+                  <input type="checkbox" checked={enableGithubGrounding} onChange={(e) => setEnableGithubGrounding(e.target.checked)} className="h-4 w-4 accent-[#f36b21]" />
+                  Enable GitHub Repository Grounding <span className="text-[10px] font-normal text-[#88847d]">(Optional)</span>
+                </label>
+                {enableGithubGrounding && (
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[11px] text-[#bbb8b1]">Candidate GitHub Repository URL</span>
+                    <input type="url" placeholder="https://github.com/Pankaj4152/NoniRecruiter" value={form.githubRepoUrl} onChange={(e) => update('githubRepoUrl', e.target.value)} className={`${input} text-xs`} />
+                    <p className="text-[10px] text-[#77736c]">Generates repo-grounded follow-ups about actual code implementation & architecture choices.</p>
+                  </div>
+                )}
               </div>
             </div>
 

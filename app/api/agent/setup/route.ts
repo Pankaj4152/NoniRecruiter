@@ -64,11 +64,23 @@ export async function POST(req: NextRequest) {
       rawResumeText = resumeTextRaw;
     }
 
+    const enableGithubGrounding = formData.get('enableGithubGrounding') === 'true';
+    const githubRepoUrl = ((formData.get('githubRepoUrl') as string) || '').trim();
+
     const parsingStartedAt = Date.now();
     const candidateProfile = await parseCandidateProfile(rawResumeText, name, role, { useLLM: true });
+    
+    if (enableGithubGrounding && githubRepoUrl) {
+      candidateProfile.enableGithubGrounding = true;
+      candidateProfile.githubRepoUrl = githubRepoUrl;
+      const { fetchGithubRepoSummary } = await import('@/lib/interview/github');
+      candidateProfile.githubSummary = await fetchGithubRepoSummary(githubRepoUrl);
+    }
+
     log('candidate-profile-ready', parsingStartedAt, {
       parser: 'llm-with-local-fallback',
       skillCount: candidateProfile.skills.length,
+      hasGithubGrounding: enableGithubGrounding,
     });
 
     const jobDescription: JobDescription = {
@@ -78,6 +90,8 @@ export async function POST(req: NextRequest) {
       responsibilities: [],
       fullText: fullJobDescription || `Interview for the ${role} role at ${company}.`,
       customInterviewerInstructions: customInstructions,
+      enableGithubGrounding,
+      githubRepoUrl,
     };
 
     const session = InterviewEngine.createSession(candidateProfile, jobDescription, targetDurationMinutes);

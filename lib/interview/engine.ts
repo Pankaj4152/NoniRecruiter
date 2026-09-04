@@ -150,6 +150,12 @@ Parsed resume index (use only when supported by the raw source above):
 `;
     }
 
+    // Format GitHub Repository Context if enabled
+    let githubContextText = '';
+    if (session.candidate.enableGithubGrounding && session.candidate.githubSummary) {
+      githubContextText = `\n=== GITHUB REPOSITORY GROUNDING (ENABLED) ===\n${session.candidate.githubSummary.summaryText}\nRULE: In the technical depth phase, ask at least one code-grounded question probing implementation trade-offs or architecture decisions in repository ${session.candidate.githubSummary.repoName}.\n`;
+    }
+
     // Construct Context & System Prompt
     const customDirectives = session.job.customInterviewerInstructions
       ? `\n=== RECRUITER CUSTOM DIRECTIVES & INTERVIEWER PERSONA ===\n${session.job.customInterviewerInstructions}\n`
@@ -166,7 +172,7 @@ ${customDirectives}
 Name: ${session.candidate.name}
 Target Role: ${session.candidate.targetRole}
 ${structuredResumeText}
-
+${githubContextText}
 === JOB DESCRIPTION & REQUIREMENTS ===
 Role Title: ${session.job.roleTitle}
 Key Requirements: ${session.job.keyRequirements.join('; ')}
