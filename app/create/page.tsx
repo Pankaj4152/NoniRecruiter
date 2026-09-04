@@ -82,12 +82,12 @@ export default function CreateInterviewPage() {
                 <select
                   value={rubricPreset}
                   onChange={(e) => setRubricPreset(e.target.value)}
-                  className={`${input} w-full text-xs font-mono bg-black/50 text-[#f4a275] border border-white/20`}
+                  className={`${input} w-full text-xs font-mono bg-[#0d0d0f] text-[#f4a275] border border-[#f36b21]/40 rounded-lg p-2.5 outline-none cursor-pointer`}
                 >
-                  <option value="balanced">Balanced Generalist (Tech 45%, Comm 30%, Prob 25%)</option>
-                  <option value="systems_architect">Systems Architect (Tech 60%, System Scale 25%, Comm 15%)</option>
-                  <option value="frontend_engineer">Frontend Specialist (Coding 40%, UI Architecture 30%, Comm 30%)</option>
-                  <option value="leadership">Engineering Manager (Comm 50%, Problem Solving 30%, Tech 20%)</option>
+                  <option value="balanced" className="bg-[#121215] text-[#f0eee9] py-1">Balanced Generalist (Tech 45%, Comm 30%, Prob 25%)</option>
+                  <option value="systems_architect" className="bg-[#121215] text-[#f0eee9] py-1">Systems Architect (Tech 60%, System Scale 25%, Comm 15%)</option>
+                  <option value="frontend_engineer" className="bg-[#121215] text-[#f0eee9] py-1">Frontend Specialist (Coding 40%, UI Architecture 30%, Comm 30%)</option>
+                  <option value="leadership" className="bg-[#121215] text-[#f0eee9] py-1">Engineering Manager (Comm 50%, Problem Solving 30%, Tech 20%)</option>
                 </select>
               </div>
 

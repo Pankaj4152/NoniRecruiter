@@ -72,6 +72,23 @@ button, input, textarea, select { font: inherit; }
 .terminal-input { width: 100%; border: 1px solid rgba(255,255,255,.15); border-radius: 0; outline: none; color: #f5f3ef; background: rgba(255,255,255,.035); transition: border-color .16s, background .16s; }
 .terminal-input::placeholder { color: #5e5d59; }
 .terminal-input:focus { border-color: var(--orange); background: rgba(255,255,255,.055); }
+
+/* Theme-consistent custom dropdown select options */
+select.terminal-input, select {
+  color-scheme: dark;
+  background-color: #0d0d0f !important;
+  color: #f4a275 !important;
+}
+select.terminal-input option, select option {
+  background-color: #121215 !important;
+  color: #f0eee9 !important;
+  padding: 10px;
+  font-family: inherit;
+}
+select.terminal-input option:hover, select.terminal-input option:focus, select.terminal-input option:checked {
+  background-color: #f36b21 !important;
+  color: #0d0d0f !important;
+}
 .terminal-button { border: 1px solid #ff7a33; border-radius: 0; background: var(--orange); color: #130b06; font: 800 .72rem/1 "Courier New", monospace; letter-spacing: .11em; text-transform: uppercase; transition: background .15s, color .15s, transform .15s; }
 .terminal-button:hover:not(:disabled) { background: #ff7c35; transform: translateY(-1px); }
 .terminal-button:active:not(:disabled) { transform: translateY(0); }
