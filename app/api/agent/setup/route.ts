@@ -66,9 +66,26 @@ export async function POST(req: NextRequest) {
 
     const enableGithubGrounding = formData.get('enableGithubGrounding') === 'true';
     const githubRepoUrl = ((formData.get('githubRepoUrl') as string) || '').trim();
+    const rubricPreset = (formData.get('rubricPreset') as string) || 'balanced';
+
+    // Role-Based Rubric Weights presets
+    let rubricWeights = { technicalAccuracy: 45, communication: 30, problemSolving: 25, coding: 0 };
+    if (rubricPreset === 'systems_architect') {
+      rubricWeights = { technicalAccuracy: 60, communication: 15, problemSolving: 25, coding: 0 };
+    } else if (rubricPreset === 'frontend_engineer') {
+      rubricWeights = { technicalAccuracy: 30, communication: 30, problemSolving: 0, coding: 40 };
+    } else if (rubricPreset === 'leadership') {
+      rubricWeights = { technicalAccuracy: 20, communication: 50, problemSolving: 30, coding: 0 };
+    } else if (rubricPreset === 'custom') {
+      try {
+        const parsed = JSON.parse((formData.get('rubricWeights') as string) || '{}');
+        rubricWeights = { ...rubricWeights, ...parsed };
+      } catch {}
+    }
 
     const parsingStartedAt = Date.now();
     const candidateProfile = await parseCandidateProfile(rawResumeText, name, role, { useLLM: true });
+    candidateProfile.rubricWeights = rubricWeights;
     
     if (enableGithubGrounding && githubRepoUrl) {
       candidateProfile.enableGithubGrounding = true;
@@ -81,6 +98,7 @@ export async function POST(req: NextRequest) {
       parser: 'llm-with-local-fallback',
       skillCount: candidateProfile.skills.length,
       hasGithubGrounding: enableGithubGrounding,
+      rubricPreset,
     });
 
     const jobDescription: JobDescription = {
@@ -92,6 +110,7 @@ export async function POST(req: NextRequest) {
       customInterviewerInstructions: customInstructions,
       enableGithubGrounding,
       githubRepoUrl,
+      rubricWeights,
     };
 
     const session = InterviewEngine.createSession(candidateProfile, jobDescription, targetDurationMinutes);

@@ -59,6 +59,31 @@ export interface GithubRepoSummary {
   summaryText: string;
 }
 
+export interface RubricWeights {
+  technicalAccuracy: number; // weight % e.g. 40
+  coding: number;            // weight % e.g. 30
+  communication: number;     // weight % e.g. 15
+  problemSolving: number;    // weight % e.g. 15
+}
+
+export interface SandboxExecutionResult {
+  language: string;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  executionTimeMs: number;
+  status: 'SUCCESS' | 'ERROR';
+}
+
+export interface IntegrityMetrics {
+  pasteEventsCount: number;
+  maxPastedLength: number;
+  flaggedCopyPaste: boolean;
+  averageResponseDelaySec: number;
+  integrityScore: number; // 0 - 100
+  integrityVerdict: 'HIGH INTEGRITY' | 'MODERATE' | 'PASTE ANOMALY FLAGGED';
+}
+
 export interface CandidateProfile {
   name: string;
   targetRole: string;
@@ -69,6 +94,7 @@ export interface CandidateProfile {
   enableGithubGrounding?: boolean;
   githubRepoUrl?: string;
   githubSummary?: GithubRepoSummary;
+  rubricWeights?: RubricWeights;
 }
 
 export interface JobDescription {
@@ -80,6 +106,7 @@ export interface JobDescription {
   customInterviewerInstructions?: string;   // Custom directives for the AI interviewer persona
   enableGithubGrounding?: boolean;
   githubRepoUrl?: string;
+  rubricWeights?: RubricWeights;
 }
 
 export interface InterviewTurn {
@@ -90,6 +117,7 @@ export interface InterviewTurn {
   phase: InterviewPhase;
   modelTrace?: ModelTrace;
   probeSequence?: ActiveProbeSequence;
+  sandboxExecution?: SandboxExecutionResult;
 }
 
 export interface ModelTrace {
@@ -115,6 +143,7 @@ export interface CodingEvaluation {
   algorithmicEfficiencyScore: number; // 0 - 10
   edgeCaseHandlingScore: number; // 0 - 10
   feedback: string;
+  sandboxExecution?: SandboxExecutionResult;
 }
 
 export interface InterviewSession {
@@ -134,6 +163,7 @@ export interface InterviewSession {
   turns: InterviewTurn[];
   isCompleted: boolean;
   activeProbe?: ActiveProbeSequence;
+  integrityMetrics?: IntegrityMetrics;
   endTime?: string;
   completionReason?: string;
 }
@@ -227,6 +257,8 @@ export interface FinalInterviewReport {
     averageSyntaxScore: number;
     averageEfficiencyScore: number;
   };
+  rubricWeights?: RubricWeights;
+  integritySummary?: IntegrityMetrics;
   strengths: string[];
   areasForImprovement: string[];
   turnEvaluations: TurnEvaluation[];

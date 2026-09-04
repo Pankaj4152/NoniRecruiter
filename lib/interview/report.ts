@@ -33,9 +33,34 @@ export class ReportGenerator {
       };
     }
 
-    const overallScore = codingScore !== undefined
-      ? Math.round(technicalAccuracy * 0.35 + communicationClarity * 0.25 + problemSolving * 0.2 + codingScore * 0.2)
-      : Math.round(technicalAccuracy * 0.45 + communicationClarity * 0.3 + problemSolving * 0.25);
+    // Phase 2: Calibrated Role-Based Scoring Rubrics
+    const rubric = session.job.rubricWeights || session.candidate.rubricWeights || {
+      technicalAccuracy: 45,
+      communication: 30,
+      problemSolving: 25,
+      coding: codingScore !== undefined ? 30 : 0,
+    };
+
+    let overallScore: number;
+    if (codingScore !== undefined) {
+      // Normalize when coding is present
+      const techW = rubric.technicalAccuracy || 35;
+      const commW = rubric.communication || 25;
+      const probW = rubric.problemSolving || 20;
+      const codeW = rubric.coding || 20;
+      const totalW = techW + commW + probW + codeW;
+      overallScore = Math.round(
+        (technicalAccuracy * techW + communicationClarity * commW + problemSolving * probW + codingScore * codeW) / totalW
+      );
+    } else {
+      const techW = rubric.technicalAccuracy || 45;
+      const commW = rubric.communication || 30;
+      const probW = rubric.problemSolving || 25;
+      const totalW = techW + commW + probW;
+      overallScore = Math.round(
+        (technicalAccuracy * techW + communicationClarity * commW + problemSolving * probW) / totalW
+      );
+    }
 
     let verdict: HiringVerdict = 'NO HIRE';
     if (overallScore >= 85) verdict = 'STRONG HIRE';
@@ -54,6 +79,16 @@ export class ReportGenerator {
       overallGroundednessScore: groundednessScore,
     };
 
+    // Phase 3: Integrity & Anti-Cheat Summary
+    const integritySummary = session.integrityMetrics || {
+      pasteEventsCount: 0,
+      maxPastedLength: 0,
+      flaggedCopyPaste: false,
+      averageResponseDelaySec: 0,
+      integrityScore: 100,
+      integrityVerdict: 'HIGH INTEGRITY',
+    };
+
     const modelUsage = buildModelUsage(session, evaluations);
     const timing = buildTimingSummary(session);
     const confidence = getConfidence(evaluations.length, modelUsage.fallbackCalls, timing);
@@ -64,6 +99,7 @@ export class ReportGenerator {
     const concerns = unique([
       ...evaluations.flatMap((evaluation) => evaluation.redFlagsEvidence),
       ...antiHallucinationSummary.flaggedClaims.map((c) => `Transcript contradiction: ${c}`),
+      ...(integritySummary.flaggedCopyPaste ? [`Candidate Integrity Warning: Detected ${integritySummary.pasteEventsCount} copy-paste events (Max pasted chunk: ${integritySummary.maxPastedLength} chars)`] : []),
       ...evaluations
         .filter((evaluation) => Math.min(evaluation.technicalAccuracyScore, evaluation.communicationScore, evaluation.problemSolvingScore) < 7)
         .map((evaluation) => evaluation.feedbackNotes),
@@ -88,6 +124,8 @@ export class ReportGenerator {
       scores: { technicalAccuracy, communicationClarity, problemSolving, codingScore },
       antiHallucinationSummary,
       codingSummary,
+      rubricWeights: rubric,
+      integritySummary,
       strengths,
       areasForImprovement: concerns,
       turnEvaluations: evaluations,
@@ -122,6 +160,14 @@ export class ReportGenerator {
 ${renderList(report.antiHallucinationSummary.flaggedClaims, 'No direct contradictions detected across transcript turns.')}
 ` : '';
 
+    const integritySection = report.integritySummary ? `
+## Candidate Integrity & Anti-Cheat Audit
+
+| Integrity Verdict | Score | Copy-Paste Events | Max Pasted Chunk | Anti-Cheat Status |
+|---|---:|---:|---:|---|
+| **${report.integritySummary.integrityVerdict}** | ${report.integritySummary.integrityScore}/100 | ${report.integritySummary.pasteEventsCount} | ${report.integritySummary.maxPastedLength} chars | ${report.integritySummary.flaggedCopyPaste ? '⚠️ FLAGGED ANOMALY' : '✅ PASSED'} |
+` : '';
+
     const markdown = `# NoniRecruiter Interview Report
 
 ## Candidate
@@ -148,6 +194,7 @@ ${report.executiveSummary}
 ${report.scores.codingScore !== undefined ? `| Live coding and algorithmic logic | ${report.scores.codingScore}/100 |\n` : ''}
 ${codingSection}
 ${hallucinationSection}
+${integritySection}
 
 ## Evidence-Backed Strengths
 

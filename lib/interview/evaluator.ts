@@ -42,13 +42,15 @@ Check if the candidate claims technologies, roles, metrics, or experiences that 
 - hallucinatedClaims: array of strings detailing ungrounded or fabricated claims (if any)
 - unsupportedTechOrClaims: array of strings listing technologies claimed without evidence
 
-${isCodingPhase ? `=== CODING / WHITEBOARD EVALUATION ===
-If the candidate provided code or algorithmic steps, evaluate:
-- syntaxCorrectnessScore (0-10)
-- algorithmicEfficiencyScore (0-10)
-- edgeCaseHandlingScore (0-10)
-- feedback (constructive analysis of code)` : ''}
-
+${candidateTurn.sandboxExecution ? `=== PISTON SANDBOX EXECUTION LOGS ===
+Language: ${candidateTurn.sandboxExecution.language}
+Status: ${candidateTurn.sandboxExecution.status} (Exit Code: ${candidateTurn.sandboxExecution.exitCode})
+Execution Time: ${candidateTurn.sandboxExecution.executionTimeMs}ms
+STDOUT:
+${candidateTurn.sandboxExecution.stdout || '(None)'}
+STDERR:
+${candidateTurn.sandboxExecution.stderr || '(None)'}
+` : ''}
 Extract exact verifier quotes for strengths and red flags.
 
 Return strictly JSON matching this structure:

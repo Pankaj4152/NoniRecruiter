@@ -10,6 +10,8 @@ export default function CreateInterviewPage() {
   const [preparationMessage, setPreparationMessage] = useState('Preparing interview…');
   const [error, setError] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [rubricPreset, setRubricPreset] = useState<string>('balanced');
+  const [customRubric, setCustomRubric] = useState({ technicalAccuracy: 45, coding: 25, communication: 20, problemSolving: 10 });
   const [enableGithubGrounding, setEnableGithubGrounding] = useState(false);
   const [form, setForm] = useState({ name: '', role: '', company: '', duration: '10', jobDescription: '', customInstructions: '', githubRepoUrl: '' });
   const update = (field: keyof typeof form, value: string) => setForm((current) => ({ ...current, [field]: value }));
@@ -27,6 +29,10 @@ export default function CreateInterviewPage() {
       const body = new FormData();
       Object.entries(form).forEach(([key, value]) => body.append(key, value));
       body.append('enableGithubGrounding', String(enableGithubGrounding));
+      body.append('rubricPreset', rubricPreset);
+      if (rubricPreset === 'custom') {
+        body.append('rubricWeights', JSON.stringify(customRubric));
+      }
       if (file) body.append('resumeFile', file);
       const response = await fetch('/api/agent/setup', { method: 'POST', body }); const data = await response.json();
       if (!response.ok || !data.sessionId) throw new Error(data.error || 'Could not create the interview.');
@@ -66,6 +72,23 @@ export default function CreateInterviewPage() {
               <div>
                 <span className="text-xs font-semibold text-[#bbb8b1]">Candidate resume <span className="ml-1 text-[#f08b53]">Required</span></span>
                 {file ? <div className="mt-1.5 flex items-center justify-between border border-[#f36b21]/50 bg-[#f36b21]/5 px-3 py-3"><span className="truncate font-mono text-xs text-[#f4a275]">{file.name}</span><button type="button" onClick={() => setFile(null)} aria-label="Remove resume" className="ml-3 text-[#77746e] hover:text-white"><X className="h-4 w-4" /></button></div> : <label className="mt-1.5 flex cursor-pointer items-center justify-center gap-2 border border-dashed border-white/20 bg-white/[.025] px-4 py-3 text-xs text-[#85827c] transition hover:border-[#f36b21] hover:text-[#ef9a69]"><input required type="file" accept=".pdf,.txt,.md" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] || null)} /><FileUp className="h-4 w-4" /> Upload required resume · PDF, TXT, or Markdown</label>}
+              </div>
+
+              {/* Rubric Weights Calibration (Phase 2) */}
+              <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3.5 space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#e2ded6]">
+                  Role Rubric Calibration Preset
+                </label>
+                <select
+                  value={rubricPreset}
+                  onChange={(e) => setRubricPreset(e.target.value)}
+                  className={`${input} w-full text-xs font-mono bg-black/50 text-[#f4a275] border border-white/20`}
+                >
+                  <option value="balanced">Balanced Generalist (Tech 45%, Comm 30%, Prob 25%)</option>
+                  <option value="systems_architect">Systems Architect (Tech 60%, System Scale 25%, Comm 15%)</option>
+                  <option value="frontend_engineer">Frontend Specialist (Coding 40%, UI Architecture 30%, Comm 30%)</option>
+                  <option value="leadership">Engineering Manager (Comm 50%, Problem Solving 30%, Tech 20%)</option>
+                </select>
               </div>
 
               <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3.5 space-y-3">

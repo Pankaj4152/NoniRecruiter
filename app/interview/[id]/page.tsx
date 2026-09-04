@@ -216,7 +216,7 @@ export default function InterviewPage() {
     }
   }
 
-  async function submitAnswerWithText(textToSubmit: string) {
+  async function submitAnswerWithText(textToSubmit: string, sandboxExecution?: any, pasteLength?: number) {
     const text = textToSubmit.trim();
     if (!text || processing) return;
     if (listening) {
@@ -225,11 +225,15 @@ export default function InterviewPage() {
     }
     setAnswer(''); setError(''); setProcessing(true);
 
-    const localCandidateTurn: InterviewTurn = { turnId: turns.length + 1, speaker: 'candidate', text, timestamp: new Date().toISOString(), phase };
+    const localCandidateTurn: InterviewTurn = { turnId: turns.length + 1, speaker: 'candidate', text, timestamp: new Date().toISOString(), phase, sandboxExecution };
     setTurns((current) => [...current, localCandidateTurn]);
 
     try {
-      const response = await fetch('/api/agent/turn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: id, answer: text }) });
+      const response = await fetch('/api/agent/turn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: id, answer: text, sandboxExecution, pasteLength }),
+      });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'The interviewer could not respond.');
       setTurns((current) => [...current, { turnId: localCandidateTurn.turnId + 1, speaker: 'interviewer', text: data.turnResult.interviewerResponse, timestamp: new Date().toISOString(), phase: data.turnResult.nextPhase }]);
@@ -337,7 +341,13 @@ export default function InterviewPage() {
       <CodeEditor
         isOpen={showCodeEditor}
         onClose={() => setShowCodeEditor(false)}
-        onSubmitCode={(codeFormatted) => void submitAnswerWithText(codeFormatted)}
+        onSubmitCode={(codeFormatted, lang, executionResult) => void submitAnswerWithText(codeFormatted, executionResult)}
+        onPasteEvent={(pastedLen) => {
+          // Log paste length for anti-cheat
+          if (pastedLen > 50) {
+            console.warn(`[Anti-Cheat Audit] Large paste event detected (${pastedLen} chars)`);
+          }
+        }}
         disabled={processing}
       />
     </main>
