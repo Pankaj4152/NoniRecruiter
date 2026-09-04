@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowUp, Clock3, Code2, Loader2, Mic, Radio, Sparkles, Square, Volume2, VolumeX, Zap } from 'lucide-react';
+import { ArrowUp, Clock3, Code2, Keyboard, Loader2, Mic, Radio, Sparkles, Square, Volume2, VolumeX, Zap } from 'lucide-react';
 import { InterviewPhase, InterviewTurn } from '@/lib/interview/types';
 import CodeEditor from '@/components/CodeEditor';
 
@@ -43,8 +43,10 @@ export default function InterviewPage() {
   const [processing, setProcessing] = useState(false);
   const [listening, setListening] = useState(false);
   const [showCodeEditor, setShowCodeEditor] = useState(false);
+  const [showKeyboardFallback, setShowKeyboardFallback] = useState(false);
   const [speakingTurnId, setSpeakingTurnId] = useState<number | null>(null);
   const [autoSpeak, setAutoSpeak] = useState(true);
+  const [interviewerSpeaking, setInterviewerSpeaking] = useState(false);
   const [revealedCharacters, setRevealedCharacters] = useState(0);
   const [error, setError] = useState('');
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
@@ -80,6 +82,7 @@ export default function InterviewPage() {
     setRevealedCharacters(0);
 
     if (!autoSpeak || !('speechSynthesis' in window)) {
+      setInterviewerSpeaking(false);
       let index = 0;
       const revealTimer = window.setInterval(() => {
         index = Math.min(text.length, index + 3);
@@ -91,18 +94,20 @@ export default function InterviewPage() {
 
     if (automaticallySpokenTurnRef.current === turn.turnId) {
       setRevealedCharacters(text.length);
+      setInterviewerSpeaking(false);
       return;
     }
     automaticallySpokenTurnRef.current = turn.turnId;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1;
+    setInterviewerSpeaking(true);
     utterance.onboundary = (event) => setRevealedCharacters(Math.min(text.length, event.charIndex + (event.charLength || 1)));
-    utterance.onend = () => { setRevealedCharacters(text.length); setSpeakingTurnId(null); };
-    utterance.onerror = () => { setRevealedCharacters(text.length); setSpeakingTurnId(null); };
+    utterance.onend = () => { setRevealedCharacters(text.length); setSpeakingTurnId(null); setInterviewerSpeaking(false); };
+    utterance.onerror = () => { setRevealedCharacters(text.length); setSpeakingTurnId(null); setInterviewerSpeaking(false); };
     setSpeakingTurnId(turn.turnId);
     window.speechSynthesis.speak(utterance);
-    return () => window.speechSynthesis.cancel();
+    return () => { window.speechSynthesis.cancel(); setInterviewerSpeaking(false); };
   }, [latestInterviewerTurn?.turnId, autoSpeak]);
 
   useEffect(() => {
@@ -121,16 +126,19 @@ export default function InterviewPage() {
     if (speakingTurnId === turn.turnId) {
       setSpeakingTurnId(null);
       setRevealedCharacters(turn.text.length);
+      setInterviewerSpeaking(false);
       return;
     }
     const utterance = new SpeechSynthesisUtterance(turn.text);
     utterance.rate = 1;
     setRevealedCharacters(0);
+    setInterviewerSpeaking(true);
     utterance.onboundary = (event) => setRevealedCharacters(Math.min(turn.text.length, event.charIndex + (event.charLength || 1)));
-    utterance.onend = () => { setRevealedCharacters(turn.text.length); setSpeakingTurnId(null); };
+    utterance.onend = () => { setRevealedCharacters(turn.text.length); setSpeakingTurnId(null); setInterviewerSpeaking(false); };
     utterance.onerror = () => {
       setRevealedCharacters(turn.text.length);
       setSpeakingTurnId(null);
+      setInterviewerSpeaking(false);
       setError('The browser could not play this message.');
     };
     setError('');
@@ -145,6 +153,7 @@ export default function InterviewPage() {
       if (!nextEnabled) {
         window.speechSynthesis?.cancel();
         setSpeakingTurnId(null);
+        setInterviewerSpeaking(false);
         setRevealedCharacters(turns.find((turn) => turn.turnId === speakingTurnId)?.text.length || latestInterviewerTurn?.text.length || 0);
       }
       return nextEnabled;
@@ -164,12 +173,14 @@ export default function InterviewPage() {
     };
     const Recognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
     if (!Recognition) {
-      setError('Voice typing is not supported in this browser. Try Chrome or Edge.');
+      setError('Voice recognition is not supported in this browser. Try Chrome or Edge.');
+      setShowKeyboardFallback(true);
       return;
     }
 
     window.speechSynthesis?.cancel();
     setSpeakingTurnId(null);
+    setInterviewerSpeaking(false);
     const recognition = new Recognition();
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -183,7 +194,7 @@ export default function InterviewPage() {
     };
     recognition.onerror = (event) => {
       setListening(false);
-      if (event.error !== 'aborted') setError(event.error === 'not-allowed' ? 'Microphone permission was denied. Allow microphone access and try again.' : `Microphone error: ${event.error}`);
+      if (event.error !== 'aborted') setError(event.error === 'not-allowed' ? 'Microphone permission was denied. Allow microphone access or switch to keyboard.' : `Microphone error: ${event.error}`);
     };
     recognition.onend = () => setListening(false);
     recognitionRef.current = recognition;
@@ -193,7 +204,7 @@ export default function InterviewPage() {
       recognition.start();
     } catch {
       setListening(false);
-      setError('The microphone could not be started. Please try again.');
+      setError('The microphone could not be started. Try again or switch to keyboard.');
     }
   }
 
@@ -274,67 +285,121 @@ export default function InterviewPage() {
         </div>
       </div>
 
+      {/* Question Speech Bubble */}
       <section className="question-bubble z-10 p-5 sm:p-6">
         <div className="mb-3 flex items-center justify-between gap-4">
           <div><span className="terminal-label"><Sparkles className="mr-1.5 h-3 w-3" /> Noni · Recruiter</span><span className="ml-3 system-code">Quest {answeredQuestions + 1}</span></div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setShowCodeEditor(true)} title="Open Live Code Editor" className={`border p-2 transition ${phase === 'CODING_CHALLENGE' ? 'border-[#f36b21] bg-[#f36b21]/20 text-[#f4a275] animate-pulse' : 'border-white/15 text-[#8d8a84] hover:border-[#f36b21] hover:text-[#f08b53]'}`}><Code2 className="h-4 w-4" /></button>
+            <button type="button" onClick={() => setShowCodeEditor(true)} title="Open Live Code Sandbox" className={`border p-2 transition ${phase === 'CODING_CHALLENGE' ? 'border-[#f36b21] bg-[#f36b21]/20 text-[#f4a275] animate-pulse' : 'border-white/15 text-[#8d8a84] hover:border-[#f36b21] hover:text-[#f08b53]'}`}><Code2 className="h-4 w-4" /></button>
             <button type="button" onClick={toggleAutomaticVoice} aria-label={autoSpeak ? 'Disable automatic voice' : 'Enable automatic voice'} title={autoSpeak ? 'Automatic voice on' : 'Automatic voice off'} className={`border p-2 ${autoSpeak ? 'border-[#f36b21]/50 text-[#f08b53]' : 'border-white/15 text-[#77746e]'}`}>{autoSpeak ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>
             {latestInterviewerTurn && <button type="button" onClick={() => speakMessage(latestInterviewerTurn)} aria-label={speakingTurnId === latestInterviewerTurn.turnId ? 'Stop speaking' : 'Replay question'} className="border border-white/15 p-2 text-[#8d8a84] hover:border-[#f36b21] hover:text-[#f08b53]">{speakingTurnId === latestInterviewerTurn.turnId ? <Square className="h-4 w-4 fill-current" /> : <Volume2 className="h-4 w-4" />}</button>}
           </div>
         </div>
-        <p className="text-sm leading-6 text-[#e7e3dc] sm:text-base sm:leading-7">{processing ? <span className="animate-pulse font-mono text-xs uppercase tracking-wider text-[#f08b53]">Preparing the next question…</span> : <>{latestInterviewerTurn?.text.slice(0, revealedCharacters)}{latestInterviewerTurn && revealedCharacters < latestInterviewerTurn.text.length && <span className="ml-0.5 animate-pulse text-[#f36b21]">|</span>}</>}</p>
+        <p className="text-sm leading-6 text-[#e7e3dc] sm:text-base sm:leading-7">
+          {processing ? (
+            <span className="animate-pulse font-mono text-xs uppercase tracking-wider text-[#f08b53]">Interviewer evaluating & formulating next probe…</span>
+          ) : (
+            <>{latestInterviewerTurn?.text.slice(0, revealedCharacters)}{latestInterviewerTurn && revealedCharacters < latestInterviewerTurn.text.length && <span className="ml-0.5 animate-pulse text-[#f36b21]">|</span>}</>
+          )}
+        </p>
       </section>
 
+      {/* Voice-First Primary Action Console */}
       <div className="absolute bottom-5 left-1/2 z-20 w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 sm:bottom-7">
-        <form onSubmit={submitAnswer} className="answer-dock p-3 sm:p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="system-kicker flex items-center gap-2"><Zap className="h-3.5 w-3.5 text-[#f08b53]" /> Your move</span>
-            <span className="system-code">Answer to unlock next quest</span>
-          </div>
-          <div className="flex items-end gap-2 border border-white/15 bg-black/35 p-1.5 focus-within:border-[#f36b21]">
-            <button
-              type="button"
-              onClick={toggleMicrophone}
-              disabled={processing}
-              aria-label={listening ? 'Stop voice typing' : 'Start voice typing'}
-              className={`border p-2.5 transition disabled:opacity-30 ${listening ? 'animate-pulse border-red-500 bg-red-500/15 text-red-400' : 'border-white/10 text-[#7e7b75] hover:border-[#f36b21] hover:text-[#f08b53]'}`}
-            >
-              {listening ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-4 w-4" />}
-            </button>
+        <form onSubmit={submitAnswer} className="answer-dock p-4 rounded-2xl border border-white/20 bg-[#0a0a0c]/95 shadow-2xl backdrop-blur-md">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="system-kicker flex items-center gap-2 text-xs font-mono font-bold text-[#f4a275]">
+              <Zap className="h-4 w-4 text-[#f36b21]" />
+              {interviewerSpeaking ? 'Interviewer Speaking…' : listening ? 'Recording Voice Answer…' : 'Your Turn to Respond'}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCodeEditor(true)}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-mono rounded border transition ${phase === 'CODING_CHALLENGE' ? 'border-[#f36b21] bg-[#f36b21]/20 text-[#f4a275] animate-pulse' : 'border-white/15 text-[#bbb8b1] hover:border-[#f36b21]'}`}
+              >
+                <Code2 className="h-3.5 w-3.5" />
+                <span>Code Sandbox</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setShowCodeEditor(true)}
-              disabled={processing}
-              aria-label="Open Code Editor"
-              title="Open Code Editor"
-              className={`border p-2.5 transition disabled:opacity-30 ${phase === 'CODING_CHALLENGE' ? 'border-[#f36b21] bg-[#f36b21]/20 text-[#f4a275]' : 'border-white/10 text-[#7e7b75] hover:border-[#f36b21] hover:text-[#f08b53]'}`}
-            >
-              <Code2 className="h-4 w-4" />
-            </button>
-
-            <textarea
-              autoFocus
-              rows={2}
-              value={answer}
-              disabled={processing}
-              onChange={(event) => setAnswer(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }
-              }}
-              placeholder={listening ? 'Listening… click stop when finished' : 'Type your answer, use microphone, or open Code Editor…'}
-              className="max-h-32 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-5 text-[#e7e3dc] outline-none placeholder:text-[#686660] disabled:opacity-60"
-            />
-            <button disabled={processing || !answer.trim()} aria-label="Send answer" className="terminal-button p-3 disabled:opacity-30"><ArrowUp className="h-4 w-4" /></button>
+              <button
+                type="button"
+                onClick={() => setShowKeyboardFallback((prev) => !prev)}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono text-[#88847d] hover:text-white border border-white/10 rounded"
+                title="Toggle Text Input"
+              >
+                <Keyboard className="h-3.5 w-3.5" />
+                <span>{showKeyboardFallback ? 'Hide Text' : 'Text Input'}</span>
+              </button>
+            </div>
           </div>
-          <p className={`mt-2 text-center font-mono text-[9px] uppercase tracking-wider ${listening ? 'font-bold text-red-400' : 'text-[#66635e]'}`}>
-            {listening ? 'Microphone active · click stop when done' : 'Enter to send · Click Code icon for live code editor'}
-          </p>
+
+          {/* Voice Waveform & Central Mic Control Button */}
+          <div className="flex flex-col items-center justify-center p-4 rounded-xl border border-white/10 bg-black/40 space-y-3">
+            {interviewerSpeaking ? (
+              <div className="flex items-center gap-3 py-3">
+                <span className="grid h-12 w-12 place-items-center rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-400 animate-pulse">
+                  <Volume2 className="h-6 w-6" />
+                </span>
+                <span className="font-mono text-xs text-[#aaa7a0]">Listen to interviewer... mic unlocks automatically when done</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center space-y-3 w-full">
+                <button
+                  type="button"
+                  onClick={toggleMicrophone}
+                  disabled={processing}
+                  className={`group relative flex items-center justify-center gap-3 px-8 py-4 rounded-full border text-sm font-mono font-bold uppercase tracking-wider transition-all shadow-xl disabled:opacity-40 ${
+                    listening
+                      ? 'border-rose-500 bg-rose-500/20 text-rose-300 animate-pulse scale-105 shadow-rose-900/50'
+                      : 'border-[#f36b21] bg-[#f36b21]/15 text-[#f4a275] hover:bg-[#f36b21]/30 hover:scale-105 shadow-orange-950/40'
+                  }`}
+                >
+                  {listening ? <Square className="h-5 w-5 fill-current" /> : <Mic className="h-5 w-5" />}
+                  <span>{listening ? 'Stop & Submit Voice Answer' : 'Press Mic to Speak Answer'}</span>
+                </button>
+
+                {/* Real-time transcript preview */}
+                {answer.trim() && (
+                  <div className="w-full mt-2 p-3 rounded border border-white/10 bg-black/60 font-mono text-xs text-[#e7e3dc] flex items-center justify-between">
+                    <span className="truncate italic max-w-[85%]">"{answer}"</span>
+                    <button
+                      type="submit"
+                      disabled={processing || !answer.trim()}
+                      className="px-3 py-1 text-xs font-mono font-bold bg-[#f36b21] text-black rounded uppercase tracking-wider hover:bg-[#ff7c35] disabled:opacity-50"
+                    >
+                      Send
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Optional Text Fallback Input */}
+          {showKeyboardFallback && (
+            <div className="mt-3 flex items-end gap-2 border border-white/15 bg-black/50 p-2 focus-within:border-[#f36b21]">
+              <textarea
+                rows={2}
+                value={answer}
+                disabled={processing}
+                onChange={(event) => setAnswer(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
+                placeholder="Type your answer fallback here..."
+                className="max-h-32 flex-1 resize-none bg-transparent px-2 py-1 text-sm text-[#e7e3dc] outline-none placeholder:text-[#686660]"
+              />
+              <button disabled={processing || !answer.trim()} type="submit" className="terminal-button p-2.5 disabled:opacity-30">
+                <ArrowUp className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </form>
+
         {error && <p role="alert" className="mt-2 border border-red-500/30 bg-[#180b0b]/95 px-4 py-2 text-xs text-red-300">{error}</p>}
       </div>
 
@@ -343,7 +408,6 @@ export default function InterviewPage() {
         onClose={() => setShowCodeEditor(false)}
         onSubmitCode={(codeFormatted, lang, executionResult) => void submitAnswerWithText(codeFormatted, executionResult)}
         onPasteEvent={(pastedLen) => {
-          // Log paste length for anti-cheat
           if (pastedLen > 50) {
             console.warn(`[Anti-Cheat Audit] Large paste event detected (${pastedLen} chars)`);
           }
@@ -353,3 +417,4 @@ export default function InterviewPage() {
     </main>
   );
 }
+
