@@ -65,15 +65,26 @@ async function runEngineTest() {
     session,
     'I diagnosed the issue with request tracing, added bounded retries, and measured recovery time before and after the change.'
   );
-  const turn5 = await InterviewEngine.processTurn(
-    session,
-    'The result reduced failed jobs, and I documented the approach so the team could maintain it.'
-  );
-  const interviewerQuestions = [turn1, turn2, turn3, turn4, turn5].map((turn) => turn.interviewerResponse.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim());
+  console.log('--- TURN 6: CANDIDATE ANSWER WITH UNGROUNDED CLAIM (Testing Anti-Hallucination) ---');
+  const candidateAns3 = "I also led a team of 50 Kubernetes cluster administrators at AWS using Rust and PyTorch.";
+  console.log(`👤 Candidate: "${candidateAns3}"`);
+  
+  const turn6 = await InterviewEngine.processTurn(session, candidateAns3);
+  console.log(`🤖 Interviewer (${turn6.nextPhase}): "${turn6.interviewerResponse}"`);
+  console.log(`   [Reasoning]: ${turn6.reasoning}`);
+
+  const interviewerQuestions = [turn1, turn2, turn3, turn4, turn6].map((turn) => turn.interviewerResponse.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim());
   assert.equal(new Set(interviewerQuestions).size, interviewerQuestions.length, 'Interviewer must not repeat a question');
   assert.notEqual(session.currentPhase, 'WARMUP', 'Interview phase must never move backward to warmup');
 
-  console.log('====================================================');
+  // Verify CandidateEvaluator fact checking
+  const { CandidateEvaluator } = await import('../lib/interview/evaluator.js');
+  const turnEval = await CandidateEvaluator.evaluateTurn(session, session.turns[session.turns.length - 1], turn6.interviewerResponse);
+  console.log('\n--- EVALUATOR ANTI-HALLUCINATION VERIFICATION ---');
+  console.log(`   [Is Grounded]: ${turnEval.antiHallucination?.isGroundedInResume}`);
+  console.log(`   [Unsupported Claims]: ${turnEval.antiHallucination?.unsupportedTechOrClaims.join(', ')}`);
+
+  console.log('\n====================================================');
   console.log(`✅ STEP 1 ENGINE TEST COMPLETED SUCCESSFULLY!`);
   console.log(`   Total Turns Processed: ${session.turnNumber}`);
   console.log(`   Current Phase: ${session.currentPhase}`);

@@ -6,6 +6,7 @@ import { InterviewPhase } from '@/lib/interview/types';
 const phases: { id: InterviewPhase; label: string }[] = [
   { id: 'WARMUP', label: 'Warmup & context' },
   { id: 'TECHNICAL_PROBING', label: 'Technical depth' },
+  { id: 'CODING_CHALLENGE', label: 'Coding challenge' },
   { id: 'BEHAVIORAL', label: 'Behavioral evidence' },
   { id: 'CLOSING', label: 'Closing & Q&A' },
 ];

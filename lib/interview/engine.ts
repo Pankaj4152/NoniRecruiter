@@ -257,7 +257,7 @@ Return strictly JSON with this EXACT structure:
       };
     }
 
-    const allowedPhases: InterviewPhase[] = ['WARMUP', 'TECHNICAL_PROBING', 'BEHAVIORAL', 'CLOSING', 'COMPLETED'];
+    const allowedPhases: InterviewPhase[] = ['WARMUP', 'TECHNICAL_PROBING', 'CODING_CHALLENGE', 'BEHAVIORAL', 'CLOSING', 'COMPLETED'];
     if (!result.interviewerResponse || !allowedPhases.includes(result.nextPhase)) {
       result = {
         interviewerResponse: result.interviewerResponse || 'Thank you. Could you expand on the choices you considered and why you selected that approach?',
@@ -268,7 +268,7 @@ Return strictly JSON with this EXACT structure:
       };
     }
 
-    const phaseOrder: InterviewPhase[] = ['WARMUP', 'TECHNICAL_PROBING', 'BEHAVIORAL', 'CLOSING', 'COMPLETED'];
+    const phaseOrder: InterviewPhase[] = ['WARMUP', 'TECHNICAL_PROBING', 'CODING_CHALLENGE', 'BEHAVIORAL', 'CLOSING', 'COMPLETED'];
     const recommendedIndex = phaseOrder.indexOf(timeBudget.recommendedPhase);
     const resultIndex = phaseOrder.indexOf(result.nextPhase);
 

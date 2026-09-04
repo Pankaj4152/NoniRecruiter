@@ -17,19 +17,53 @@ export class ReportGenerator {
     const technicalAccuracy = average((evaluation) => evaluation.technicalAccuracyScore);
     const communicationClarity = average((evaluation) => evaluation.communicationScore);
     const problemSolving = average((evaluation) => evaluation.problemSolvingScore);
-    const overallScore = Math.round(technicalAccuracy * 0.45 + communicationClarity * 0.3 + problemSolving * 0.25);
+    
+    // Coding Score (if applicable)
+    const codingEvals = evaluations.map((e) => e.codingEvaluation).filter((ce): ce is NonNullable<typeof ce> => Boolean(ce));
+    let codingScore: number | undefined = undefined;
+    let codingSummary: FinalInterviewReport['codingSummary'] = undefined;
+    if (codingEvals.length > 0) {
+      const avgSyntax = Math.round((codingEvals.reduce((s, c) => s + c.syntaxCorrectnessScore, 0) / codingEvals.length) * 10);
+      const avgEfficiency = Math.round((codingEvals.reduce((s, c) => s + c.algorithmicEfficiencyScore, 0) / codingEvals.length) * 10);
+      codingScore = Math.round((avgSyntax + avgEfficiency) / 2);
+      codingSummary = {
+        problemsPresented: codingEvals.length,
+        averageSyntaxScore: avgSyntax,
+        averageEfficiencyScore: avgEfficiency,
+      };
+    }
+
+    const overallScore = codingScore !== undefined
+      ? Math.round(technicalAccuracy * 0.35 + communicationClarity * 0.25 + problemSolving * 0.2 + codingScore * 0.2)
+      : Math.round(technicalAccuracy * 0.45 + communicationClarity * 0.3 + problemSolving * 0.25);
 
     let verdict: HiringVerdict = 'NO HIRE';
     if (overallScore >= 85) verdict = 'STRONG HIRE';
     else if (overallScore >= 75) verdict = 'HIRE';
     else if (overallScore >= 65) verdict = 'LEAN HIRE';
 
+    // Anti-Hallucination & Skill Discovery summary
+    const additionalSkills = evaluations.flatMap((e) => e.antiHallucination?.unsupportedTechOrClaims || []);
+    const flaggedClaims = evaluations.flatMap((e) => e.antiHallucination?.hallucinatedClaims || []);
+    const totalContradictions = flaggedClaims.length;
+    const groundednessScore = Math.max(0, 100 - totalContradictions * 25);
+    const antiHallucinationSummary = {
+      totalHallucinationFlags: totalContradictions,
+      flaggedClaims: unique(flaggedClaims),
+      additionalSkillsDiscovered: unique(additionalSkills),
+      overallGroundednessScore: groundednessScore,
+    };
+
     const modelUsage = buildModelUsage(session, evaluations);
     const timing = buildTimingSummary(session);
     const confidence = getConfidence(evaluations.length, modelUsage.fallbackCalls, timing);
-    const strengths = unique(evaluations.flatMap((evaluation) => evaluation.strengthsEvidence).filter(Boolean)).slice(0, 5);
+    const strengths = unique([
+      ...evaluations.flatMap((evaluation) => evaluation.strengthsEvidence),
+      ...antiHallucinationSummary.additionalSkillsDiscovered.map((s) => `Expanded on resume during interview: ${s}`),
+    ].filter(Boolean)).slice(0, 5);
     const concerns = unique([
       ...evaluations.flatMap((evaluation) => evaluation.redFlagsEvidence),
+      ...antiHallucinationSummary.flaggedClaims.map((c) => `Transcript contradiction: ${c}`),
       ...evaluations
         .filter((evaluation) => Math.min(evaluation.technicalAccuracyScore, evaluation.communicationScore, evaluation.problemSolvingScore) < 7)
         .map((evaluation) => evaluation.feedbackNotes),
@@ -51,7 +85,9 @@ export class ReportGenerator {
       recommendedNextStep: getRecommendedNextStep(verdict, confidence),
       timing,
       modelUsage,
-      scores: { technicalAccuracy, communicationClarity, problemSolving },
+      scores: { technicalAccuracy, communicationClarity, problemSolving, codingScore },
+      antiHallucinationSummary,
+      codingSummary,
       strengths,
       areasForImprovement: concerns,
       turnEvaluations: evaluations,
@@ -62,11 +98,29 @@ export class ReportGenerator {
   public static saveMarkdownReport(report: FinalInterviewReport): string {
     const evidenceRows = report.turnEvaluations.map((evaluation) => {
       const evidence = evaluation.strengthsEvidence[0] || evaluation.feedbackNotes;
-      return `| ${evaluation.turnId} | ${formatPhase(evaluation.phase)} | ${evaluation.technicalAccuracyScore}/10 | ${evaluation.communicationScore}/10 | ${evaluation.problemSolvingScore}/10 | ${escapeTable(evidence)} |`;
+      const groundedBadge = evaluation.antiHallucination?.isGroundedInResume === false ? ' ⚠️ [Contradiction Detected]' : '';
+      return `| ${evaluation.turnId} | ${formatPhase(evaluation.phase)} | ${evaluation.technicalAccuracyScore}/10 | ${evaluation.communicationScore}/10 | ${evaluation.problemSolvingScore}/10 | ${escapeTable(evidence)}${groundedBadge} |`;
     }).join('\n');
+
     const transcript = report.fullTranscript.map((turn) =>
       `**Turn ${turn.turnId} - ${turn.speaker === 'interviewer' ? 'NoniRecruiter' : report.candidateName}** | ${formatPhase(turn.phase)}\n\n${turn.text}\n`
     ).join('\n');
+
+    const codingSection = report.scores.codingScore !== undefined ? `
+## Coding & Technical Challenge Scorecard
+
+| Problem Count | Average Syntax Score | Average Efficiency Score | Overall Coding Score |
+|---:|---:|---:|---:|
+| ${report.codingSummary?.problemsPresented || 0} | ${report.codingSummary?.averageSyntaxScore || 0}/100 | ${report.codingSummary?.averageEfficiencyScore || 0}/100 | ${report.scores.codingScore}/100 |
+` : '';
+
+    const hallucinationSection = report.antiHallucinationSummary ? `
+## Fact Checking & Resume Verification Matrix
+
+- **Overall Transcript Groundedness Score**: ${report.antiHallucinationSummary.overallGroundednessScore}/100
+- **Direct Transcript Contradictions**: ${report.antiHallucinationSummary.totalHallucinationFlags}
+${renderList(report.antiHallucinationSummary.flaggedClaims, 'No direct contradictions detected across transcript turns.')}
+` : '';
 
     const markdown = `# NoniRecruiter Interview Report
 
@@ -91,6 +145,9 @@ ${report.executiveSummary}
 | Technical accuracy and depth | ${report.scores.technicalAccuracy}/100 |
 | Communication and structure | ${report.scores.communicationClarity}/100 |
 | Problem solving and systems thinking | ${report.scores.problemSolving}/100 |
+${report.scores.codingScore !== undefined ? `| Live coding and algorithmic logic | ${report.scores.codingScore}/100 |\n` : ''}
+${codingSection}
+${hallucinationSection}
 
 ## Evidence-Backed Strengths
 

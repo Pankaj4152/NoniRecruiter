@@ -1,6 +1,7 @@
 export type InterviewPhase = 
   | 'WARMUP' 
   | 'TECHNICAL_PROBING' 
+  | 'CODING_CHALLENGE'
   | 'BEHAVIORAL' 
   | 'CLOSING' 
   | 'COMPLETED';
@@ -71,6 +72,7 @@ export interface InterviewTurn {
   timestamp: string;
   phase: InterviewPhase;
   modelTrace?: ModelTrace;
+  probeSequence?: ActiveProbeSequence;
 }
 
 export interface ModelTrace {
@@ -79,6 +81,23 @@ export interface ModelTrace {
   latencyMs: number;
   usedFallback: boolean;
   fallbackReason?: string;
+}
+
+export interface ActiveProbeSequence {
+  topic: string;
+  depth: number;       // 1, 2, or 3
+  maxDepth: number;    // default 3
+  probeObjective: string;
+}
+
+export interface CodingEvaluation {
+  problemPrompt: string;
+  codeSnippet: string;
+  language?: string;
+  syntaxCorrectnessScore: number; // 0 - 10
+  algorithmicEfficiencyScore: number; // 0 - 10
+  edgeCaseHandlingScore: number; // 0 - 10
+  feedback: string;
 }
 
 export interface InterviewSession {
@@ -97,6 +116,7 @@ export interface InterviewSession {
   demoLabel?: string;
   turns: InterviewTurn[];
   isCompleted: boolean;
+  activeProbe?: ActiveProbeSequence;
   endTime?: string;
   completionReason?: string;
 }
@@ -105,6 +125,7 @@ export interface EngineTurnResult {
   interviewerResponse: string;
   nextPhase: InterviewPhase;
   shouldProbeDeeper: boolean;
+  activeProbe?: ActiveProbeSequence;
   shouldEndInterview: boolean;
   terminationReason?: string;
   reasoning: string;
@@ -123,6 +144,14 @@ export interface InterviewTimeBudget {
   remainingAreas: string[];
 }
 
+export interface AntiHallucinationCheck {
+  isGroundedInResume: boolean;
+  isConsistentWithPriorTurns: boolean;
+  hallucinatedClaims: string[];
+  unsupportedTechOrClaims: string[];
+  verificationConfidence: 'HIGH' | 'MODERATE' | 'LOW';
+}
+
 export interface TurnEvaluation {
   turnId: number;
   phase: InterviewPhase;
@@ -133,6 +162,8 @@ export interface TurnEvaluation {
   strengthsEvidence: string[];     // Direct verifier quotes
   redFlagsEvidence: string[];     // Direct verifier quotes
   feedbackNotes: string;
+  codingEvaluation?: CodingEvaluation;
+  antiHallucination?: AntiHallucinationCheck;
   modelTrace?: ModelTrace;
 }
 
@@ -167,9 +198,21 @@ export interface FinalInterviewReport {
     technicalAccuracy: number; // 0 - 100
     communicationClarity: number; // 0 - 100
     problemSolving: number; // 0 - 100
+    codingScore?: number; // 0 - 100 (if coding challenge took place)
+  };
+  antiHallucinationSummary?: {
+    totalHallucinationFlags: number;
+    flaggedClaims: string[];
+    overallGroundednessScore: number; // 0 - 100
+  };
+  codingSummary?: {
+    problemsPresented: number;
+    averageSyntaxScore: number;
+    averageEfficiencyScore: number;
   };
   strengths: string[];
   areasForImprovement: string[];
   turnEvaluations: TurnEvaluation[];
   fullTranscript: InterviewTurn[];
 }
+
