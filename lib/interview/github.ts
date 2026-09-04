@@ -48,26 +48,22 @@ export async function fetchGithubRepoSummary(url: string): Promise<GithubRepoSum
       keyFiles = ['package.json', 'src', 'lib', 'components', 'README.md'];
     }
 
+    // Strict token optimization caps
+    const truncatedDesc = (repoData.description || 'Public software engineering repository').slice(0, 100).replace(/\s+/g, ' ').trim();
     const primaryLanguage = repoData.language || 'TypeScript/JavaScript';
-    const topics = Array.isArray(repoData.topics) ? repoData.topics : [];
-    const description = repoData.description || 'Public software engineering repository';
+    const topics = (Array.isArray(repoData.topics) ? repoData.topics : []).slice(0, 3);
+    const compactFiles = keyFiles.slice(0, 6);
 
-    const summaryText = `GitHub Repository Context (Authoritative Grounding Source):
-- Repository: ${owner}/${repo} (${cleanUrl})
-- Description: ${description}
-- Primary Language: ${primaryLanguage}
-- Key Topics/Tags: ${topics.length ? topics.join(', ') : 'Software Engineering'}
-- Root File Structure: ${keyFiles.length ? keyFiles.join(', ') : 'Standard project structure'}
-`;
+    const summaryText = `[GitHub Context - ${owner}/${repo}]: Tech: ${primaryLanguage} | Files: ${compactFiles.join(', ')} | Desc: ${truncatedDesc}`;
 
     return {
       repoName: repo,
       owner,
       repoUrl: cleanUrl,
-      description,
+      description: truncatedDesc,
       primaryLanguage,
       languages: [primaryLanguage],
-      keyFiles,
+      keyFiles: compactFiles,
       topics,
       summaryText,
     };
@@ -78,12 +74,7 @@ export async function fetchGithubRepoSummary(url: string): Promise<GithubRepoSum
 }
 
 function createFallbackGithubSummary(repoUrl: string, owner: string, repo: string): GithubRepoSummary {
-  const summaryText = `GitHub Repository Context (Authoritative Grounding Source):
-- Repository: ${owner}/${repo} (${repoUrl})
-- Description: Candidate provided repository
-- Primary Language: TypeScript/Python
-- Key Structure: Full-stack application architecture
-`;
+  const summaryText = `[GitHub Context - ${owner}/${repo}]: Tech: TypeScript/Python | Files: src, lib, components`;
 
   return {
     repoName: repo,
@@ -92,8 +83,8 @@ function createFallbackGithubSummary(repoUrl: string, owner: string, repo: strin
     description: 'Candidate repository',
     primaryLanguage: 'TypeScript/Python',
     languages: ['TypeScript', 'Python'],
-    keyFiles: ['src', 'lib', 'components', 'package.json', 'README.md'],
-    topics: ['fullstack', 'ai-integration'],
+    keyFiles: ['src', 'lib', 'components'],
+    topics: ['fullstack'],
     summaryText,
   };
 }

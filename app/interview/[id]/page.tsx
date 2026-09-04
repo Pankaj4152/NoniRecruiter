@@ -2,8 +2,9 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowUp, Clock3, Loader2, Mic, Radio, Sparkles, Square, Volume2, VolumeX, Zap } from 'lucide-react';
+import { ArrowUp, Clock3, Code2, Loader2, Mic, Radio, Sparkles, Square, Volume2, VolumeX, Zap } from 'lucide-react';
 import { InterviewPhase, InterviewTurn } from '@/lib/interview/types';
+import CodeEditor from '@/components/CodeEditor';
 
 interface SessionView {
   candidate: { name: string; targetRole: string };
@@ -41,6 +42,7 @@ export default function InterviewPage() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [listening, setListening] = useState(false);
+  const [showCodeEditor, setShowCodeEditor] = useState(false);
   const [speakingTurnId, setSpeakingTurnId] = useState<number | null>(null);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [revealedCharacters, setRevealedCharacters] = useState(0);
@@ -214,9 +216,8 @@ export default function InterviewPage() {
     }
   }
 
-  async function submitAnswer(event: FormEvent) {
-    event.preventDefault();
-    const text = answer.trim();
+  async function submitAnswerWithText(textToSubmit: string) {
+    const text = textToSubmit.trim();
     if (!text || processing) return;
     if (listening) {
       recognitionRef.current?.stop();
@@ -239,6 +240,11 @@ export default function InterviewPage() {
       setError(caught instanceof Error ? caught.message : 'The interviewer could not respond.');
       setProcessing(false);
     }
+  }
+
+  async function submitAnswer(event: FormEvent) {
+    event.preventDefault();
+    await submitAnswerWithText(answer);
   }
 
   if (loading) return <main className="office-shell grid min-h-[calc(100vh-4rem)] place-items-center"><div className="text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-orange-500" /><p className="mt-3 font-mono text-xs uppercase tracking-wider text-slate-500">Opening interview room</p></div></main>;
@@ -268,6 +274,7 @@ export default function InterviewPage() {
         <div className="mb-3 flex items-center justify-between gap-4">
           <div><span className="terminal-label"><Sparkles className="mr-1.5 h-3 w-3" /> Noni · Recruiter</span><span className="ml-3 system-code">Quest {answeredQuestions + 1}</span></div>
           <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setShowCodeEditor(true)} title="Open Live Code Editor" className={`border p-2 transition ${phase === 'CODING_CHALLENGE' ? 'border-[#f36b21] bg-[#f36b21]/20 text-[#f4a275] animate-pulse' : 'border-white/15 text-[#8d8a84] hover:border-[#f36b21] hover:text-[#f08b53]'}`}><Code2 className="h-4 w-4" /></button>
             <button type="button" onClick={toggleAutomaticVoice} aria-label={autoSpeak ? 'Disable automatic voice' : 'Enable automatic voice'} title={autoSpeak ? 'Automatic voice on' : 'Automatic voice off'} className={`border p-2 ${autoSpeak ? 'border-[#f36b21]/50 text-[#f08b53]' : 'border-white/15 text-[#77746e]'}`}>{autoSpeak ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>
             {latestInterviewerTurn && <button type="button" onClick={() => speakMessage(latestInterviewerTurn)} aria-label={speakingTurnId === latestInterviewerTurn.turnId ? 'Stop speaking' : 'Replay question'} className="border border-white/15 p-2 text-[#8d8a84] hover:border-[#f36b21] hover:text-[#f08b53]">{speakingTurnId === latestInterviewerTurn.turnId ? <Square className="h-4 w-4 fill-current" /> : <Volume2 className="h-4 w-4" />}</button>}
           </div>
@@ -277,16 +284,62 @@ export default function InterviewPage() {
 
       <div className="absolute bottom-5 left-1/2 z-20 w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 sm:bottom-7">
         <form onSubmit={submitAnswer} className="answer-dock p-3 sm:p-4">
-          <div className="mb-2 flex items-center justify-between"><span className="system-kicker flex items-center gap-2"><Zap className="h-3.5 w-3.5 text-[#f08b53]" /> Your move</span><span className="system-code">Answer to unlock next quest</span></div>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="system-kicker flex items-center gap-2"><Zap className="h-3.5 w-3.5 text-[#f08b53]" /> Your move</span>
+            <span className="system-code">Answer to unlock next quest</span>
+          </div>
           <div className="flex items-end gap-2 border border-white/15 bg-black/35 p-1.5 focus-within:border-[#f36b21]">
-            <button type="button" onClick={toggleMicrophone} disabled={processing} aria-label={listening ? 'Stop voice typing' : 'Start voice typing'} className={`border p-2.5 transition disabled:opacity-30 ${listening ? 'animate-pulse border-red-500 bg-red-500/15 text-red-400' : 'border-white/10 text-[#7e7b75] hover:border-[#f36b21] hover:text-[#f08b53]'}`}>{listening ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-4 w-4" />}</button>
-            <textarea autoFocus rows={2} value={answer} disabled={processing} onChange={(event) => setAnswer(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder={listening ? 'Listening… click stop when finished' : 'Type your answer or use the microphone…'} className="max-h-32 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-5 text-[#e7e3dc] outline-none placeholder:text-[#686660] disabled:opacity-60" />
+            <button
+              type="button"
+              onClick={toggleMicrophone}
+              disabled={processing}
+              aria-label={listening ? 'Stop voice typing' : 'Start voice typing'}
+              className={`border p-2.5 transition disabled:opacity-30 ${listening ? 'animate-pulse border-red-500 bg-red-500/15 text-red-400' : 'border-white/10 text-[#7e7b75] hover:border-[#f36b21] hover:text-[#f08b53]'}`}
+            >
+              {listening ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-4 w-4" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowCodeEditor(true)}
+              disabled={processing}
+              aria-label="Open Code Editor"
+              title="Open Code Editor"
+              className={`border p-2.5 transition disabled:opacity-30 ${phase === 'CODING_CHALLENGE' ? 'border-[#f36b21] bg-[#f36b21]/20 text-[#f4a275]' : 'border-white/10 text-[#7e7b75] hover:border-[#f36b21] hover:text-[#f08b53]'}`}
+            >
+              <Code2 className="h-4 w-4" />
+            </button>
+
+            <textarea
+              autoFocus
+              rows={2}
+              value={answer}
+              disabled={processing}
+              onChange={(event) => setAnswer(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+              placeholder={listening ? 'Listening… click stop when finished' : 'Type your answer, use microphone, or open Code Editor…'}
+              className="max-h-32 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-5 text-[#e7e3dc] outline-none placeholder:text-[#686660] disabled:opacity-60"
+            />
             <button disabled={processing || !answer.trim()} aria-label="Send answer" className="terminal-button p-3 disabled:opacity-30"><ArrowUp className="h-4 w-4" /></button>
           </div>
-          <p className={`mt-2 text-center font-mono text-[9px] uppercase tracking-wider ${listening ? 'font-bold text-red-400' : 'text-[#66635e]'}`}>{listening ? 'Microphone active · click stop when done' : 'Enter to send · Shift + Enter for a new line'}</p>
+          <p className={`mt-2 text-center font-mono text-[9px] uppercase tracking-wider ${listening ? 'font-bold text-red-400' : 'text-[#66635e]'}`}>
+            {listening ? 'Microphone active · click stop when done' : 'Enter to send · Click Code icon for live code editor'}
+          </p>
         </form>
         {error && <p role="alert" className="mt-2 border border-red-500/30 bg-[#180b0b]/95 px-4 py-2 text-xs text-red-300">{error}</p>}
       </div>
+
+      <CodeEditor
+        isOpen={showCodeEditor}
+        onClose={() => setShowCodeEditor(false)}
+        onSubmitCode={(codeFormatted) => void submitAnswerWithText(codeFormatted)}
+        disabled={processing}
+      />
     </main>
   );
 }
