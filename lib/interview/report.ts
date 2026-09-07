@@ -62,7 +62,10 @@ export class ReportGenerator {
       );
     }
 
-    let verdict: HiringVerdict = 'NO HIRE';
+    const hasUnvalidatedEvaluation = evaluations.some((evaluation) => !evaluation.modelTrace || evaluation.modelTrace.usedFallback);
+    if (hasUnvalidatedEvaluation) overallScore = 0;
+
+    let verdict: HiringVerdict = hasUnvalidatedEvaluation ? 'INCONCLUSIVE' : 'NO HIRE';
     if (overallScore >= 85) verdict = 'STRONG HIRE';
     else if (overallScore >= 75) verdict = 'HIRE';
     else if (overallScore >= 65) verdict = 'LEAN HIRE';
@@ -91,14 +94,15 @@ export class ReportGenerator {
 
     const modelUsage = buildModelUsage(session, evaluations);
     const timing = buildTimingSummary(session);
-    const confidence = getConfidence(evaluations.length, modelUsage.fallbackCalls, timing);
+    const confidence = hasUnvalidatedEvaluation ? 'LOW' : getConfidence(evaluations.length, modelUsage.fallbackCalls, timing);
     const strengths = unique([
-      ...evaluations.flatMap((evaluation) => evaluation.strengthsEvidence),
+      ...(hasUnvalidatedEvaluation ? [] : evaluations.flatMap((evaluation) => evaluation.strengthsEvidence)),
       ...antiHallucinationSummary.additionalSkillsDiscovered.map((s) => `Expanded on resume during interview: ${s}`),
     ].filter(Boolean)).slice(0, 5);
     const concerns = unique([
       ...evaluations.flatMap((evaluation) => evaluation.redFlagsEvidence),
       ...antiHallucinationSummary.flaggedClaims.map((c) => `Transcript contradiction: ${c}`),
+      ...(hasUnvalidatedEvaluation ? ['Live evaluator unavailable; heuristic scores are excluded from hiring decisions.'] : []),
       ...(integritySummary.flaggedCopyPaste ? [`Candidate Integrity Warning: Detected ${integritySummary.pasteEventsCount} copy-paste events (Max pasted chunk: ${integritySummary.maxPastedLength} chars)`] : []),
       ...evaluations
         .filter((evaluation) => Math.min(evaluation.technicalAccuracyScore, evaluation.communicationScore, evaluation.problemSolvingScore) < 7)
@@ -179,6 +183,8 @@ ${renderList(report.antiHallucinationSummary.flaggedClaims, 'No direct contradic
 ## Executive Recommendation
 
 **${report.verdict} | ${report.overallScore}/100 | ${report.confidence} confidence**
+
+${report.verdict === 'INCONCLUSIVE' ? '> This report is for demonstration only. Live evaluator output was unavailable, so no hiring recommendation was produced.' : ''}
 
 ${report.executiveSummary}
 
@@ -305,6 +311,7 @@ function buildExecutiveSummary(
 }
 
 function getRecommendedNextStep(verdict: HiringVerdict, confidence: FinalInterviewReport['confidence']): string {
+  if (verdict === 'INCONCLUSIVE') return 'Enable a live evaluator and repeat the interview before making any hiring decision.';
   if (confidence === 'LOW') return 'Run a focused follow-up interview before using this recommendation.';
   if (verdict === 'STRONG HIRE' || verdict === 'HIRE') return 'Proceed to the next hiring stage with human review of the evidence.';
   if (verdict === 'LEAN HIRE') return 'Run a focused follow-up on the identified development areas.';

@@ -214,7 +214,7 @@ export interface TurnEvaluation {
   modelTrace?: ModelTrace;
 }
 
-export type HiringVerdict = 'STRONG HIRE' | 'HIRE' | 'LEAN HIRE' | 'NO HIRE';
+export type HiringVerdict = 'STRONG HIRE' | 'HIRE' | 'LEAN HIRE' | 'NO HIRE' | 'INCONCLUSIVE';
 
 export interface FinalInterviewReport {
   sessionId: string;
