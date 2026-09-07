@@ -12,6 +12,7 @@
     "test:time": "tsx scripts/test-time-budget.ts",
     "test:provider": "tsx scripts/test-provider-trace.ts",
     "test:report-safety": "tsx scripts/test-report-safety.ts",
+    "test:rubric": "tsx scripts/test-rubric.ts",
     "test:grounding": "tsx scripts/test-grounding.ts",
     "test:interactive": "tsx scripts/interactive-interview.ts",
     "test:simulate": "tsx scripts/simulate.ts"

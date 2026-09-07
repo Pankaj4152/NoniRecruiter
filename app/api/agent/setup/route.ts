@@ -3,6 +3,7 @@ import { parseCandidateProfile } from '@/lib/interview/parser';
 import { InterviewEngine } from '@/lib/interview/engine';
 import { JobDescription } from '@/lib/interview/types';
 import { activeSessions } from '@/lib/interview/store';
+import { normalizeRubricWeights } from '@/lib/interview/report';
 
 export async function POST(req: NextRequest) {
   const requestId = crypto.randomUUID().slice(0, 8);
@@ -82,6 +83,7 @@ export async function POST(req: NextRequest) {
         rubricWeights = { ...rubricWeights, ...parsed };
       } catch {}
     }
+    rubricWeights = normalizeRubricWeights(rubricWeights, rubricWeights.coding > 0);
 
     const parsingStartedAt = Date.now();
     const candidateProfile = await parseCandidateProfile(rawResumeText, name, role, { useLLM: true });

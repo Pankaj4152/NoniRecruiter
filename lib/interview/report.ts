@@ -6,7 +6,21 @@ import {
   InterviewSession,
   ModelTrace,
   TurnEvaluation,
+  RubricWeights,
 } from './types';
+
+export function normalizeRubricWeights(input: Partial<RubricWeights> | undefined, hasCoding: boolean): RubricWeights {
+  const defaults: RubricWeights = hasCoding
+    ? { technicalAccuracy: 35, communication: 25, problemSolving: 20, coding: 20 }
+    : { technicalAccuracy: 45, communication: 30, problemSolving: 25, coding: 0 };
+  const value = (key: keyof RubricWeights) => {
+    const candidate = input?.[key];
+    return typeof candidate === 'number' && Number.isFinite(candidate) ? Math.min(100, Math.max(0, candidate)) : defaults[key];
+  };
+  const weights = { technicalAccuracy: value('technicalAccuracy'), communication: value('communication'), problemSolving: value('problemSolving'), coding: value('coding') };
+  if (weights.technicalAccuracy + weights.communication + weights.problemSolving + (hasCoding ? weights.coding : 0) === 0) return defaults;
+  return weights;
+}
 
 export class ReportGenerator {
   public static createReportData(session: InterviewSession, evaluations: TurnEvaluation[]): FinalInterviewReport {
@@ -25,37 +39,34 @@ export class ReportGenerator {
     if (codingEvals.length > 0) {
       const avgSyntax = Math.round((codingEvals.reduce((s, c) => s + c.syntaxCorrectnessScore, 0) / codingEvals.length) * 10);
       const avgEfficiency = Math.round((codingEvals.reduce((s, c) => s + c.algorithmicEfficiencyScore, 0) / codingEvals.length) * 10);
-      codingScore = Math.round((avgSyntax + avgEfficiency) / 2);
+      const avgEdgeCase = Math.round((codingEvals.reduce((s, c) => s + c.edgeCaseHandlingScore, 0) / codingEvals.length) * 10);
+      codingScore = Math.round((avgSyntax + avgEfficiency + avgEdgeCase) / 3);
       codingSummary = {
         problemsPresented: codingEvals.length,
         averageSyntaxScore: avgSyntax,
         averageEfficiencyScore: avgEfficiency,
+        averageEdgeCaseScore: avgEdgeCase,
       };
     }
 
     // Phase 2: Calibrated Role-Based Scoring Rubrics
-    const rubric = session.job.rubricWeights || session.candidate.rubricWeights || {
-      technicalAccuracy: 45,
-      communication: 30,
-      problemSolving: 25,
-      coding: codingScore !== undefined ? 30 : 0,
-    };
+    const rubric = normalizeRubricWeights(session.job.rubricWeights || session.candidate.rubricWeights, codingScore !== undefined);
 
     let overallScore: number;
     if (codingScore !== undefined) {
       // Normalize when coding is present
-      const techW = rubric.technicalAccuracy || 35;
-      const commW = rubric.communication || 25;
-      const probW = rubric.problemSolving || 20;
-      const codeW = rubric.coding || 20;
+      const techW = rubric.technicalAccuracy;
+      const commW = rubric.communication;
+      const probW = rubric.problemSolving;
+      const codeW = rubric.coding;
       const totalW = techW + commW + probW + codeW;
       overallScore = Math.round(
         (technicalAccuracy * techW + communicationClarity * commW + problemSolving * probW + codingScore * codeW) / totalW
       );
     } else {
-      const techW = rubric.technicalAccuracy || 45;
-      const commW = rubric.communication || 30;
-      const probW = rubric.problemSolving || 25;
+      const techW = rubric.technicalAccuracy;
+      const commW = rubric.communication;
+      const probW = rubric.problemSolving;
       const totalW = techW + commW + probW;
       overallScore = Math.round(
         (technicalAccuracy * techW + communicationClarity * commW + problemSolving * probW) / totalW
@@ -151,9 +162,9 @@ export class ReportGenerator {
     const codingSection = report.scores.codingScore !== undefined ? `
 ## Coding & Technical Challenge Scorecard
 
-| Problem Count | Average Syntax Score | Average Efficiency Score | Overall Coding Score |
-|---:|---:|---:|---:|
-| ${report.codingSummary?.problemsPresented || 0} | ${report.codingSummary?.averageSyntaxScore || 0}/100 | ${report.codingSummary?.averageEfficiencyScore || 0}/100 | ${report.scores.codingScore}/100 |
+| Problem Count | Average Syntax Score | Average Efficiency Score | Average Edge-Case Score | Overall Coding Score |
+|---:|---:|---:|---:|---:|
+| ${report.codingSummary?.problemsPresented || 0} | ${report.codingSummary?.averageSyntaxScore || 0}/100 | ${report.codingSummary?.averageEfficiencyScore || 0}/100 | ${report.codingSummary?.averageEdgeCaseScore || 0}/100 | ${report.scores.codingScore}/100 |
 ` : '';
 
     const hallucinationSection = report.antiHallucinationSummary ? `

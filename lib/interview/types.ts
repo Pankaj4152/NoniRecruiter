@@ -256,6 +256,7 @@ export interface FinalInterviewReport {
     problemsPresented: number;
     averageSyntaxScore: number;
     averageEfficiencyScore: number;
+    averageEdgeCaseScore: number;
   };
   rubricWeights?: RubricWeights;
   integritySummary?: IntegrityMetrics;
