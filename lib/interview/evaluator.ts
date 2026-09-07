@@ -167,26 +167,22 @@ Return strictly JSON matching this structure:
   }
 
   private static performLocalAntiHallucinationCheck(session: InterviewSession, turn: InterviewTurn): AntiHallucinationCheck {
-    const resumeTextLower = session.candidate.resumeText.toLowerCase();
-    const answerTextLower = turn.text.toLowerCase();
-    const priorCandidateText = session.turns.filter((item) => item.speaker === 'candidate' && item.turnId !== turn.turnId).map((item) => item.text.toLowerCase()).join(' ');
+    const sourceText = `${session.candidate.resumeText} ${session.turns.filter((item) => item.speaker === 'candidate' && item.turnId !== turn.turnId).map((item) => item.text).join(' ')}`;
+    const sourceTerms = new Set((sourceText.match(/[A-Za-z0-9+#.-]{3,}/g) || []).map((term) => term.toLowerCase()));
     const hallucinatedClaims: string[] = [];
     const unsupportedClaims: string[] = [];
 
-    // Track skills mentioned in answer that expand on resume without penalizing
-    const commonTechTerms = ['kubernetes', 'aws', 'gcp', 'azure', 'docker', 'graphql', 'kafka', 'redis', 'rust', 'c++', 'python', 'pytorch'];
-    for (const tech of commonTechTerms) {
-      const presentInAnswer = new RegExp(`\\b${tech.replace(/[+]/g, '\\+')}\\b`, 'i').test(answerTextLower);
-      const supportedBySource = new RegExp(`\\b${tech.replace(/[+]/g, '\\+')}\\b`, 'i').test(resumeTextLower) || new RegExp(`\\b${tech.replace(/[+]/g, '\\+')}\\b`, 'i').test(priorCandidateText);
-      if (presentInAnswer && !supportedBySource) {
-        unsupportedClaims.push(`${tech} (not verified by resume or prior answers)`);
-      }
+    // Salient terms are extracted from the answer dynamically below.
+    const salientTerms = turn.text.match(/[A-Z][A-Za-z0-9+#.-]{2,}|\b[A-Z]{2,}\b|\b\d+(?:[.,]\d+)?%?\b/g) || [];
+    for (const term of Array.from(new Set(salientTerms))) {
+      if (!sourceTerms.has(term.toLowerCase())) unsupportedClaims.push(`${term} (not verified by resume or prior answers)`);
     }
 
-    const unsupportedClaimPatterns = [/\bled\s+(?:a\s+)?team\b/i, /\b(?:at|for)\s+(?:amazon|aws|google|microsoft|meta)\b/i];
-    for (const pattern of unsupportedClaimPatterns) {
-      const match = turn.text.match(pattern);
-      if (match && !resumeTextLower.includes(match[0].toLowerCase()) && !priorCandidateText.includes(match[0].toLowerCase())) hallucinatedClaims.push(match[0]);
+    if (unsupportedClaims.length) {
+      const unsupportedSet = new Set(unsupportedClaims.map((claim) => claim.split(' (')[0].toLowerCase()));
+      const sentences = turn.text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [turn.text];
+      const sentence = sentences.find((item) => Array.from(unsupportedSet).some((term) => item.toLowerCase().includes(term)));
+      if (sentence) hallucinatedClaims.push(sentence.trim());
     }
 
     return {

@@ -83,7 +83,7 @@ async function runEngineTest() {
   const turnEval = await CandidateEvaluator.evaluateTurn(session, candidateTurn, turn4.interviewerResponse);
   assert.equal(turnEval.candidateAnswer, candidateAns3);
   assert.equal(turnEval.antiHallucination?.isGroundedInResume, false);
-  assert.ok(turnEval.antiHallucination?.unsupportedTechOrClaims.some((claim) => claim.startsWith('kubernetes')));
+  assert.ok(turnEval.antiHallucination?.unsupportedTechOrClaims.some((claim) => claim.toLowerCase().startsWith('kubernetes')));
   assert.ok(turnEval.antiHallucination?.hallucinatedClaims.some((claim) => /led a team/i.test(claim)));
   console.log('\n--- EVALUATOR ANTI-HALLUCINATION VERIFICATION ---');
   console.log(`   [Is Grounded]: ${turnEval.antiHallucination?.isGroundedInResume}`);
