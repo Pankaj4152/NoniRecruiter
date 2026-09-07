@@ -95,13 +95,21 @@ Return strictly JSON matching this structure:
         ? value.filter((quote): quote is string => typeof quote === 'string' && normalizedAnswer.includes(normalizeEvidence(quote)))
         : [];
 
-      const antiHallucination: AntiHallucinationCheck = parsed.antiHallucination ? {
+      const localGrounding = CandidateEvaluator.performLocalAntiHallucinationCheck(session, candidateTurn);
+      const modelGrounding: AntiHallucinationCheck | undefined = parsed.antiHallucination ? {
         isGroundedInResume: Boolean(parsed.antiHallucination.isGroundedInResume),
         isConsistentWithPriorTurns: Boolean(parsed.antiHallucination.isConsistentWithPriorTurns),
-        hallucinatedClaims: Array.isArray(parsed.antiHallucination.hallucinatedClaims) ? parsed.antiHallucination.hallucinatedClaims : [],
-        unsupportedTechOrClaims: Array.isArray(parsed.antiHallucination.unsupportedTechOrClaims) ? parsed.antiHallucination.unsupportedTechOrClaims : [],
+        hallucinatedClaims: Array.isArray(parsed.antiHallucination.hallucinatedClaims) ? parsed.antiHallucination.hallucinatedClaims.filter((value: unknown): value is string => typeof value === 'string') : [],
+        unsupportedTechOrClaims: Array.isArray(parsed.antiHallucination.unsupportedTechOrClaims) ? parsed.antiHallucination.unsupportedTechOrClaims.filter((value: unknown): value is string => typeof value === 'string') : [],
         verificationConfidence: parsed.antiHallucination.verificationConfidence || 'HIGH',
-      } : CandidateEvaluator.performLocalAntiHallucinationCheck(session, candidateTurn);
+      } : undefined;
+      const antiHallucination: AntiHallucinationCheck = {
+        isGroundedInResume: (modelGrounding?.isGroundedInResume ?? true) && localGrounding.isGroundedInResume,
+        isConsistentWithPriorTurns: Boolean(modelGrounding?.isConsistentWithPriorTurns ?? true) && localGrounding.isConsistentWithPriorTurns,
+        hallucinatedClaims: Array.from(new Set([...(modelGrounding?.hallucinatedClaims || []), ...localGrounding.hallucinatedClaims])),
+        unsupportedTechOrClaims: Array.from(new Set([...(modelGrounding?.unsupportedTechOrClaims || []), ...localGrounding.unsupportedTechOrClaims])),
+        verificationConfidence: localGrounding.verificationConfidence === 'LOW' || modelGrounding?.verificationConfidence === 'LOW' ? 'LOW' : modelGrounding?.verificationConfidence || localGrounding.verificationConfidence,
+      };
 
       let codingEvaluation: CodingEvaluation | undefined = undefined;
       if (parsed.codingEvaluation) {
@@ -161,23 +169,32 @@ Return strictly JSON matching this structure:
   private static performLocalAntiHallucinationCheck(session: InterviewSession, turn: InterviewTurn): AntiHallucinationCheck {
     const resumeTextLower = session.candidate.resumeText.toLowerCase();
     const answerTextLower = turn.text.toLowerCase();
+    const priorCandidateText = session.turns.filter((item) => item.speaker === 'candidate' && item.turnId !== turn.turnId).map((item) => item.text.toLowerCase()).join(' ');
     const hallucinatedClaims: string[] = [];
-    const additionalSkills: string[] = [];
+    const unsupportedClaims: string[] = [];
 
     // Track skills mentioned in answer that expand on resume without penalizing
     const commonTechTerms = ['kubernetes', 'aws', 'gcp', 'azure', 'docker', 'graphql', 'kafka', 'redis', 'rust', 'c++', 'python', 'pytorch'];
     for (const tech of commonTechTerms) {
-      if (answerTextLower.includes(tech) && !resumeTextLower.includes(tech)) {
-        additionalSkills.push(`${tech} (introduced in interview)`);
+      const presentInAnswer = new RegExp(`\\b${tech.replace(/[+]/g, '\\+')}\\b`, 'i').test(answerTextLower);
+      const supportedBySource = new RegExp(`\\b${tech.replace(/[+]/g, '\\+')}\\b`, 'i').test(resumeTextLower) || new RegExp(`\\b${tech.replace(/[+]/g, '\\+')}\\b`, 'i').test(priorCandidateText);
+      if (presentInAnswer && !supportedBySource) {
+        unsupportedClaims.push(`${tech} (not verified by resume or prior answers)`);
       }
     }
 
+    const unsupportedClaimPatterns = [/\bled\s+(?:a\s+)?team\b/i, /\b(?:at|for)\s+(?:amazon|aws|google|microsoft|meta)\b/i];
+    for (const pattern of unsupportedClaimPatterns) {
+      const match = turn.text.match(pattern);
+      if (match && !resumeTextLower.includes(match[0].toLowerCase()) && !priorCandidateText.includes(match[0].toLowerCase())) hallucinatedClaims.push(match[0]);
+    }
+
     return {
-      isGroundedInResume: true,
+      isGroundedInResume: hallucinatedClaims.length === 0 && unsupportedClaims.length === 0,
       isConsistentWithPriorTurns: true,
       hallucinatedClaims,
-      unsupportedTechOrClaims: additionalSkills,
-      verificationConfidence: 'HIGH',
+      unsupportedTechOrClaims: unsupportedClaims,
+      verificationConfidence: hallucinatedClaims.length || unsupportedClaims.length ? 'MODERATE' : 'HIGH',
     };
   }
 

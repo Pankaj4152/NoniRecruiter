@@ -97,11 +97,11 @@ export class ReportGenerator {
     const confidence = hasUnvalidatedEvaluation ? 'LOW' : getConfidence(evaluations.length, modelUsage.fallbackCalls, timing);
     const strengths = unique([
       ...(hasUnvalidatedEvaluation ? [] : evaluations.flatMap((evaluation) => evaluation.strengthsEvidence)),
-      ...antiHallucinationSummary.additionalSkillsDiscovered.map((s) => `Expanded on resume during interview: ${s}`),
     ].filter(Boolean)).slice(0, 5);
     const concerns = unique([
       ...evaluations.flatMap((evaluation) => evaluation.redFlagsEvidence),
       ...antiHallucinationSummary.flaggedClaims.map((c) => `Transcript contradiction: ${c}`),
+      ...antiHallucinationSummary.additionalSkillsDiscovered.map((s) => `Unverified claim: ${s}`),
       ...(hasUnvalidatedEvaluation ? ['Live evaluator unavailable; heuristic scores are excluded from hiring decisions.'] : []),
       ...(integritySummary.flaggedCopyPaste ? [`Candidate Integrity Warning: Detected ${integritySummary.pasteEventsCount} copy-paste events (Max pasted chunk: ${integritySummary.maxPastedLength} chars)`] : []),
       ...evaluations
