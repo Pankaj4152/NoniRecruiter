@@ -52,6 +52,10 @@ export async function generateLLMCompletionDetailed(
     result = await callGemini(messages, options);
   }
 
+  if (result.trace.usedFallback && process.env.LLM_REQUIRE_LIVE === 'true') {
+    throw new Error(`Live LLM request failed: ${result.trace.fallbackReason || 'provider unavailable'}`);
+  }
+
   console.info('[llm] request completed', {
     callId,
     provider: result.trace.provider,
@@ -68,7 +72,7 @@ async function callGemini(
   options: LLMCompletionOptions
 ): Promise<LLMCompletionResult> {
   const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
   const startedAt = Date.now();
 
   if (!apiKey || apiKey.trim().length < 10) {

@@ -53,6 +53,7 @@ export default function InterviewPage() {
   const dictationPrefixRef = useRef('');
   const automaticallySpokenTurnRef = useRef<number | null>(null);
   const latestInterviewerTurn = [...turns].reverse().find((turn) => turn.speaker === 'interviewer');
+  const usingDemoFallback = turns.some((turn) => turn.modelTrace?.usedFallback);
 
   useEffect(() => {
     fetch(`/api/agent/session?sessionId=${encodeURIComponent(id)}`)
@@ -287,6 +288,7 @@ export default function InterviewPage() {
 
       {/* Question Speech Bubble */}
       <section className="question-bubble z-10 p-5 sm:p-6">
+        {usingDemoFallback && <div className="mb-3 border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[10px] leading-4 text-amber-200">Demo fallback is active. Live AI is unavailable, so this interview is for demonstration only.</div>}
         <div className="mb-3 flex items-center justify-between gap-4">
           <div><span className="terminal-label"><Sparkles className="mr-1.5 h-3 w-3" /> Noni · Recruiter</span><span className="ml-3 system-code">Quest {answeredQuestions + 1}</span></div>
           <div className="flex items-center gap-2">
