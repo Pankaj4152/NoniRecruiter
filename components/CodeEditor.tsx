@@ -155,7 +155,7 @@ export default function CodeEditor({ isOpen, onClose, onSubmitCode, onPasteEvent
         <div className="relative flex-1 p-4 bg-[#08080a] font-mono text-xs overflow-auto min-h-[220px]">
           <textarea
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={(e) => { setCode(e.target.value); setExecutionResult(null); }}
             onPaste={handlePaste}
             disabled={disabled || isRunning}
             spellCheck={false}

@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     }
 
     let reportData = interviewReports.get(sessionId);
-    let reportFilePath: string | undefined;
+    const cached = Boolean(reportData);
     if (!reportData) {
       console.info('[interview-report]', { requestId, stage: 'evaluation-started', sessionId, turnCount: session.turns.length });
       const evaluationStartedAt = Date.now();
@@ -29,14 +29,12 @@ export async function POST(req: NextRequest) {
       console.info('[interview-report]', { requestId, stage: 'evaluation-completed', sessionId, durationMs: Date.now() - evaluationStartedAt, evaluationCount: evaluations.length });
       reportData = ReportGenerator.createReportData(session, evaluations);
       interviewReports.set(sessionId, reportData);
-      reportFilePath = ReportGenerator.saveMarkdownReport(reportData);
     }
 
-    console.info('[interview-report]', { requestId, stage: 'completed', sessionId, durationMs: Date.now() - startedAt, cached: !reportFilePath });
+    console.info('[interview-report]', { requestId, stage: 'completed', sessionId, durationMs: Date.now() - startedAt, cached });
 
     return NextResponse.json({
       report: reportData,
-      reportFilePath,
     });
   } catch (error) {
     console.error('[interview-report]', { requestId, stage: 'failed', durationMs: Date.now() - startedAt, error: error instanceof Error ? error.message : 'Unknown report error' });

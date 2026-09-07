@@ -18,7 +18,7 @@ export class InterviewEngine {
     targetDurationMinutes: number = 10
   ): InterviewSession {
     return {
-      sessionId: `session_${Date.now()}`,
+      sessionId: `session_${crypto.randomUUID()}`,
       candidate,
       job,
       currentPhase: 'WARMUP',
@@ -356,7 +356,7 @@ Return strictly JSON with this EXACT structure:
       : nextArea === 'Behavioral evidence and communication'
         ? 'BEHAVIORAL'
         : timeBudget.recommendedPhase;
-    const order: InterviewPhase[] = ['WARMUP', 'TECHNICAL_PROBING', 'BEHAVIORAL', 'CLOSING', 'COMPLETED'];
+    const order: InterviewPhase[] = ['WARMUP', 'TECHNICAL_PROBING', 'CODING_CHALLENGE', 'BEHAVIORAL', 'CLOSING', 'COMPLETED'];
     return order[Math.max(order.indexOf(session.currentPhase), order.indexOf(desired))];
   }
 

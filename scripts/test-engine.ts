@@ -79,7 +79,9 @@ async function runEngineTest() {
 
   // Verify CandidateEvaluator fact checking
   const { CandidateEvaluator } = await import('../lib/interview/evaluator.js');
-  const turnEval = await CandidateEvaluator.evaluateTurn(session, session.turns[session.turns.length - 1], turn6.interviewerResponse);
+  const candidateTurn = session.turns.filter((turn) => turn.speaker === 'candidate').at(-1)!;
+  const turnEval = await CandidateEvaluator.evaluateTurn(session, candidateTurn, turn4.interviewerResponse);
+  assert.equal(turnEval.candidateAnswer, candidateAns3);
   console.log('\n--- EVALUATOR ANTI-HALLUCINATION VERIFICATION ---');
   console.log(`   [Is Grounded]: ${turnEval.antiHallucination?.isGroundedInResume}`);
   console.log(`   [Unsupported Claims]: ${turnEval.antiHallucination?.unsupportedTechOrClaims.join(', ')}`);
@@ -91,4 +93,4 @@ async function runEngineTest() {
   console.log('====================================================');
 }
 
-runEngineTest().catch(console.error);
+runEngineTest().catch((error) => { console.error(error); process.exitCode = 1; });

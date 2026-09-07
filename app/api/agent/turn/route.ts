@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   const requestId = crypto.randomUUID().slice(0, 8);
   const startedAt = Date.now();
   try {
-    const { sessionId, answer, sandboxExecution, pasteLength } = await req.json();
+    const { sessionId, answer, pasteLength } = await req.json();
 
     if (typeof sessionId !== 'string' || typeof answer !== 'string' || !answer.trim()) {
       return NextResponse.json({ error: 'A valid session and answer are required.' }, { status: 400 });
@@ -50,13 +50,7 @@ export async function POST(req: NextRequest) {
     console.info('[interview-turn]', { requestId, stage: 'processing', sessionId, turnNumber: session.turnNumber + 1, answerCharacters: answer.length });
     const turnResult = await InterviewEngine.processTurn(session, answer);
     
-    // Attach sandbox result if present
-    if (sandboxExecution) {
-      const lastCandidateTurn = session.turns.filter((t) => t.speaker === 'candidate').pop();
-      if (lastCandidateTurn) {
-        lastCandidateTurn.sandboxExecution = sandboxExecution;
-      }
-    }
+    // Browser execution previews are untrusted and are excluded from grading.
     console.info('[interview-turn]', {
       requestId,
       stage: 'completed',
